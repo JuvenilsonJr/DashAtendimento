@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard de Chamados — Suporte Apdata</title>
+  <style>
+    :root {
+      --primary: #1a237e;
+      --primary-light: #3949ab;
+      --accent: #ff6f00;
+      --bg: #f5f7fa;
+      --card-bg: #ffffff;
+      --text: #212121;
+      --text-muted: #757575;
+      --border: #e0e0e0;
+      --success: #2e7d32;
+      --shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white;
+      padding: 1.2rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+    }
+
+    header .status {
+      font-size: 0.85rem;
+      opacity: 0.9;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    /* Filtros */
+    .filters {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .filter-group label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .filter-group select {
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.95rem;
+      min-width: 260px;
+      background: white;
+      cursor: pointer;
+    }
+
+    .filter-group select:focus {
+      outline: none;
+      border-color: var(--primary-light);
+      box-shadow: 0 0 0 3px rgba(57, 73, 171, 0.15);
+    }
+
+    .btn-refresh {
+      padding: 0.6rem 1.2rem;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-refresh:hover { background: var(--primary-light); }
+    .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Cards de Resumo */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      padding: 1.2rem;
+      box-shadow: var(--shadow);
+      text-align: center;
+      border-top: 4px solid var(--primary);
+    }
+
+    .summary-card.accent { border-top-color: var(--accent); }
+    .summary-card.success { border-top-color: var(--success); }
+
+    .summary-card .number {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1;
+      margin-bottom: 0.3rem;
+    }
+
+    .summary-card.accent .number { color: var(--accent); }
+    .summary-card.success .number { color: var(--success); }
+
+    .summary-card .label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Tabelas */
+    .section {
+      background: var(--card-bg);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 1rem 1.5rem;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .section-header.accent-header {
+      background: linear-gradient(135deg, var(--accent), #ff8f00);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--border);
+      background: #fafafa;
+    }
+
+    tbody td {
+      padding: 0.75rem 1rem;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    tbody tr:hover { background: #f0f4ff; }
+
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    .font-bold { font-weight: 600; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .badge-primary { background: #e8eaf6; color: var(--primary); }
+    .badge-accent { background: #fff3e0; color: var(--accent); }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+    }
+
+    .loading .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error {
+      background: #ffebee;
+      color: #c62828;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    /* Responsivo */
+    @media (max-width: 768px) {
+      .container { padding: 1rem; }
+      .filters { flex-direction: column; }
+      .filter-group select { min-width: 100%; }
+      .summary-cards { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dashboard de Chamados — Suporte</h1>
+    <span class="status" id="statusText">Carregando...</span>
+  </header>
+
+  <div class="container">
+    <!-- Filtros -->
+    <div class="filters">
+      <div class="filter-group">
+        <label>Equipe</label>
+        <select id="filtroEquipe">
+          <option value="">Todas as equipes</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Atendente</label>
+        <select id="filtroAtendente">
+          <option value="">Todos os atendentes</option>
+        </select>
+      </div>
+      <button class="btn-refresh" id="btnRefresh" onclick="carregarDados()">Atualizar</button>
+    </div>
+
+    <!-- Erro -->
+    <div class="error" id="errorBox" style="display:none"></div>
+
+    <!-- Cards de Resumo -->
+    <div class="summary-cards">
+      <div class="summary-card">
+        <div class="number" id="totalEquipe">-</div>
+        <div class="label">Chamados Abertos (Equipe)</div>
+      </div>
+      <div class="summary-card accent">
+        <div class="number" id="totalAtendentes">-</div>
+        <div class="label">Chamados com Atendentes</div>
+      </div>
+      <div class="summary-card success">
+        <div class="number" id="totalHoje">-</div>
+        <div class="label">Distribuidos Hoje</div>
+      </div>
+    </div>
+
+    <!-- Tabela de Atendentes -->
+    <div class="section">
+      <div class="section-header">Chamados por Atendente</div>
+      <div id="tabelaAtendentes">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Carregando dados...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela de Distribuidos Hoje -->
+    <div class="section">
+      <div class="section-header accent-header">Chamados Distribuidos Hoje</div>
+      <div id="tabelaHoje">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Carregando dados...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // URL do Cloudflare Worker
+    const WORKER_URL = 'https://apdata-dashboard-api.dashatendimento.workers.dev';
+    const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:5000'
+      : WORKER_URL;
+
+    let dadosCache = null;
+
+    async function carregarDados() {
+      const btn = document.getElementById('btnRefresh');
+      const statusText = document.getElementById('statusText');
+      const errorBox = document.getElementById('errorBox');
+
+      btn.disabled = true;
+      btn.textContent = 'Carregando...';
+      statusText.textContent = 'Atualizando...';
+      errorBox.style.display = 'none';
+
+      try {
+        const resp = await fetch(`${API_URL}/api/dashboard`);
+        if (!resp.ok) throw new Error(`Erro HTTP ${resp.status}`);
+        dadosCache = await resp.json();
+
+        if (dadosCache.error) throw new Error(dadosCache.error);
+
+        preencherFiltros(dadosCache);
+        renderizar(dadosCache);
+
+        const agora = new Date().toLocaleTimeString('pt-BR');
+        statusText.textContent = `Atualizado: ${agora}`;
+      } catch (err) {
+        errorBox.textContent = `Erro ao carregar dados: ${err.message}`;
+        errorBox.style.display = 'block';
+        statusText.textContent = 'Erro na conexao';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Atualizar';
+      }
+    }
+
+    function preencherFiltros(dados) {
+      const selEquipe = document.getElementById('filtroEquipe');
+      const selAtendente = document.getElementById('filtroAtendente');
+
+      const eqAtual = selEquipe.value;
+      const atAtual = selAtendente.value;
+
+      const equipes = dados.equipes.map(e => e.nome).sort();
+      selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
+      equipes.forEach(nome => {
+        const opt = document.createElement('option');
+        opt.value = nome;
+        opt.textContent = nome;
+        selEquipe.appendChild(opt);
+      });
+
+      const atendentes = dados.atendentes.map(a => a.nome).sort();
+      selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
+      atendentes.forEach(nome => {
+        const opt = document.createElement('option');
+        opt.value = nome;
+        opt.textContent = nome;
+        selAtendente.appendChild(opt);
+      });
+
+      if (eqAtual) selEquipe.value = eqAtual;
+      if (atAtual) selAtendente.value = atAtual;
+    }
+
+    function renderizar(dados) {
+      const filtroEquipe = document.getElementById('filtroEquipe').value;
+      const filtroAtendente = document.getElementById('filtroAtendente').value;
+
+      let equipesFiltradas = dados.equipes;
+      if (filtroEquipe) {
+        equipesFiltradas = equipesFiltradas.filter(e => e.nome === filtroEquipe);
+      }
+
+      let atendentesFiltrados = dados.atendentes;
+      if (filtroAtendente) {
+        atendentesFiltrados = atendentesFiltrados.filter(a => a.nome === filtroAtendente);
+      }
+
+      const totalEq = equipesFiltradas.reduce((sum, e) => sum + e.chamados_abertos, 0);
+      const totalAt = atendentesFiltrados.reduce((sum, a) => sum + a.chamados_abertos, 0);
+      const totalHoje = dados.distribuidos_hoje
+        .filter(d => !filtroAtendente || d.atendente === filtroAtendente)
+        .reduce((sum, d) => sum + d.chamados_novos, 0);
+
+      document.getElementById('totalEquipe').textContent = totalEq;
+      document.getElementById('totalAtendentes').textContent = totalAt;
+      document.getElementById('totalHoje').textContent = totalHoje;
+
+      renderTabelaAtendentes(atendentesFiltrados);
+
+      let hojeFiltrados = dados.distribuidos_hoje;
+      if (filtroAtendente) {
+        hojeFiltrados = hojeFiltrados.filter(d => d.atendente === filtroAtendente);
+      }
+      renderTabelaHoje(hojeFiltrados);
+    }
+
+    function renderTabelaAtendentes(atendentes) {
+      const container = document.getElementById('tabelaAtendentes');
+
+      if (!atendentes.length) {
+        container.innerHTML = '<div class="loading"><p>Nenhum atendente encontrado</p></div>';
+        return;
+      }
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>Atendente</th>
+            <th class="text-center">Chamados Abertos</th>
+            <th class="text-center">Encerrados (Mes)</th>
+            <th class="text-center">Ultimo Chamado Novo</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      atendentes.forEach(a => {
+        html += `<tr>
+          <td class="font-bold">${a.nome}</td>
+          <td class="text-center"><span class="badge badge-primary">${a.chamados_abertos}</span></td>
+          <td class="text-center"><span class="badge badge-accent">${a.chamados_encerrados}</span></td>
+          <td class="text-center">${a.ultimo_chamado}</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function renderTabelaHoje(distribuidos) {
+      const container = document.getElementById('tabelaHoje');
+
+      if (!distribuidos.length) {
+        container.innerHTML = '<div class="loading"><p>Nenhum chamado distribuido hoje</p></div>';
+        return;
+      }
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>Atendente</th>
+            <th class="text-center">Chamados Novos Hoje</th>
+            <th class="text-center">Data</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      distribuidos.forEach(d => {
+        html += `<tr>
+          <td class="font-bold">${d.atendente}</td>
+          <td class="text-center"><span class="badge badge-primary">${d.chamados_novos}</span></td>
+          <td class="text-center">${d.data}</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    document.getElementById('filtroEquipe').addEventListener('change', () => {
+      if (dadosCache) renderizar(dadosCache);
+    });
+
+    document.getElementById('filtroAtendente').addEventListener('change', () => {
+      if (dadosCache) renderizar(dadosCache);
+    });
+
+    // Auto-refresh a cada 5 minutos
+    setInterval(carregarDados, 5 * 60 * 1000);
+
+    // Carregar ao abrir
+    carregarDados();
+  </script>
+</body>
+</html>
