@@ -347,8 +347,8 @@
         <div class="label">Chamados Abertos (Equipe)</div>
       </div>
       <div class="summary-card accent">
-        <div class="number" id="totalAtendentes">-</div>
-        <div class="label">Chamados com Atendentes</div>
+        <div class="number" id="totalSemAtendente">-</div>
+        <div class="label">Chamados sem Atendente</div>
       </div>
       <div class="summary-card success">
         <div class="number" id="totalHoje">-</div>
@@ -444,7 +444,12 @@
       const eqAtual = selEquipe.value;
       const atAtual = selAtendente.value;
 
-      const equipes = dados.equipes.map(e => e.nome).sort();
+      // Equipes: combinar nomes de equipes (da query principal) + sem_atendente
+      const nomesEquipes = new Set();
+      (dados.equipes || []).forEach(e => nomesEquipes.add(e.nome));
+      (dados.sem_atendente || []).forEach(s => nomesEquipes.add(s.equipe));
+      const equipes = [...nomesEquipes].sort();
+
       selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
       equipes.forEach(nome => {
         const opt = document.createElement('option');
@@ -481,13 +486,20 @@
       }
 
       const totalEq = equipesFiltradas.reduce((sum, e) => sum + e.chamados_abertos, 0);
-      const totalAt = atendentesFiltrados.reduce((sum, a) => sum + a.chamados_abertos, 0);
+
+      // Sem atendente: filtrar por equipe selecionada
+      let semAtendenteFiltrado = dados.sem_atendente || [];
+      if (filtroEquipe) {
+        semAtendenteFiltrado = semAtendenteFiltrado.filter(s => s.equipe === filtroEquipe);
+      }
+      const totalSemAtendente = semAtendenteFiltrado.reduce((sum, s) => sum + s.quantidade, 0);
+
       const totalHoje = dados.distribuidos_hoje
         .filter(d => !filtroAtendente || d.atendente === filtroAtendente)
         .reduce((sum, d) => sum + d.chamados_novos, 0);
 
       document.getElementById('totalEquipe').textContent = totalEq;
-      document.getElementById('totalAtendentes').textContent = totalAt;
+      document.getElementById('totalSemAtendente').textContent = totalSemAtendente;
       document.getElementById('totalHoje').textContent = totalHoje;
 
       renderTabelaAtendentes(atendentesFiltrados);
