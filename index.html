@@ -444,7 +444,7 @@
       const eqAtual = selEquipe.value;
       const atAtual = selAtendente.value;
 
-      // Equipes: combinar nomes de equipes (da query principal) + sem_atendente
+      // Equipes: extrair nomes únicos
       const nomesEquipes = new Set();
       (dados.equipes || []).forEach(e => nomesEquipes.add(e.nome));
       (dados.sem_atendente || []).forEach(s => nomesEquipes.add(s.equipe));
@@ -458,9 +458,17 @@
         selEquipe.appendChild(opt);
       });
 
-      const atendentes = dados.atendentes.map(a => a.nome).sort();
+      // Atendentes: filtrar pela equipe selecionada
+      let atendentesLista = (dados.atendentes || []).map(a => a.nome);
+      if (eqAtual) {
+        atendentesLista = (dados.atendentes || [])
+          .filter(a => a.equipe === eqAtual)
+          .map(a => a.nome);
+      }
+      const atendentesUnicos = [...new Set(atendentesLista)].sort();
+
       selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
-      atendentes.forEach(nome => {
+      atendentesUnicos.forEach(nome => {
         const opt = document.createElement('option');
         opt.value = nome;
         opt.textContent = nome;
@@ -468,19 +476,26 @@
       });
 
       if (eqAtual) selEquipe.value = eqAtual;
-      if (atAtual) selAtendente.value = atAtual;
+      if (atAtual && atendentesUnicos.includes(atAtual)) {
+        selAtendente.value = atAtual;
+      }
     }
 
     function renderizar(dados) {
       const filtroEquipe = document.getElementById('filtroEquipe').value;
       const filtroAtendente = document.getElementById('filtroAtendente').value;
 
-      let equipesFiltradas = dados.equipes;
+      // Filtrar equipes
+      let equipesFiltradas = dados.equipes || [];
       if (filtroEquipe) {
         equipesFiltradas = equipesFiltradas.filter(e => e.nome === filtroEquipe);
       }
 
-      let atendentesFiltrados = dados.atendentes;
+      // Filtrar atendentes pela equipe selecionada
+      let atendentesFiltrados = dados.atendentes || [];
+      if (filtroEquipe) {
+        atendentesFiltrados = atendentesFiltrados.filter(a => a.equipe === filtroEquipe);
+      }
       if (filtroAtendente) {
         atendentesFiltrados = atendentesFiltrados.filter(a => a.nome === filtroAtendente);
       }
@@ -523,9 +538,8 @@
         <thead>
           <tr>
             <th>Atendente</th>
+            <th>Equipe</th>
             <th class="text-center">Chamados Abertos</th>
-            <th class="text-center">Encerrados (Mes)</th>
-            <th class="text-center">Ultimo Chamado Novo</th>
           </tr>
         </thead>
         <tbody>`;
@@ -533,9 +547,8 @@
       atendentes.forEach(a => {
         html += `<tr>
           <td class="font-bold">${a.nome}</td>
+          <td>${a.equipe}</td>
           <td class="text-center"><span class="badge badge-primary">${a.chamados_abertos}</span></td>
-          <td class="text-center"><span class="badge badge-accent">${a.chamados_encerrados}</span></td>
-          <td class="text-center">${a.ultimo_chamado}</td>
         </tr>`;
       });
 
@@ -574,7 +587,10 @@
     }
 
     document.getElementById('filtroEquipe').addEventListener('change', () => {
-      if (dadosCache) renderizar(dadosCache);
+      if (dadosCache) {
+        preencherFiltros(dadosCache);
+        renderizar(dadosCache);
+      }
     });
 
     document.getElementById('filtroAtendente').addEventListener('change', () => {
