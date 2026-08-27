@@ -245,7 +245,19 @@
       border-bottom: 2px solid var(--border);
       background: var(--th-bg);
       transition: background 0.3s;
+      cursor: pointer;
+      user-select: none;
     }
+
+    thead th:hover { opacity: 0.8; }
+
+    thead th .sort-arrow {
+      font-size: 0.7rem;
+      margin-left: 0.3rem;
+      opacity: 0.5;
+    }
+
+    thead th.sorted .sort-arrow { opacity: 1; }
 
     tbody td {
       padding: 0.75rem 1rem;
@@ -422,6 +434,80 @@
     applyTheme(savedTheme);
 
     // ─── API ──────────────────────────────────────────────────────────────────
+
+    // ─── Ordenação ────────────────────────────────────────────────────────────
+    const sortState = {};
+
+    function sortData(data, key, tableId) {
+      if (!sortState[tableId]) sortState[tableId] = { key: null, asc: true };
+      const state = sortState[tableId];
+
+      if (state.key === key) {
+        state.asc = !state.asc;
+      } else {
+        state.key = key;
+        state.asc = true;
+      }
+
+      return [...data].sort((a, b) => {
+        let valA = a[key];
+        let valB = b[key];
+
+        // Tentar como número
+        const numA = Number(valA);
+        const numB = Number(valB);
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return state.asc ? numA - numB : numB - numA;
+        }
+
+        // Como string
+        valA = String(valA || '').toLowerCase();
+        valB = String(valB || '').toLowerCase();
+        if (valA < valB) return state.asc ? -1 : 1;
+        if (valA > valB) return state.asc ? 1 : -1;
+        return 0;
+      });
+    }
+
+    function thSortable(label, key, tableId) {
+      const state = sortState[tableId] || {};
+      const arrow = state.key === key ? (state.asc ? '\u25B2' : '\u25BC') : '\u25B4';
+      const cls = state.key === key ? 'sorted' : '';
+      return `<th class="${cls}" onclick="onSort('${tableId}','${key}')">${label}<span class="sort-arrow">${arrow}</span></th>`;
+    }
+
+    function onSort(tableId, key) {
+      if (!dadosCache) return;
+      // Re-renderizar a tabela específica com a nova ordenação
+      const filtroEquipe = document.getElementById('filtroEquipe').value;
+      const filtroAtendente = document.getElementById('filtroAtendente').value;
+
+      if (tableId === 'atendentes') {
+        let data = dadosCache.atendentes || [];
+        if (filtroEquipe) data = data.filter(a => a.equipe === filtroEquipe);
+        if (filtroAtendente) data = data.filter(a => a.nome === filtroAtendente);
+        data = sortData(data, key, tableId);
+        renderTabelaAtendentes(data, true);
+      } else if (tableId === 'hoje') {
+        let data = dadosCache.distribuidos_hoje || [];
+        if (filtroAtendente) data = data.filter(d => d.atendente === filtroAtendente);
+        data = sortData(data, key, tableId);
+        renderTabelaHoje(data, true);
+      } else if (tableId === 'diasSemMov') {
+        let data = dadosCache.dias_sem_movimentacao || [];
+        if (filtroEquipe) data = data.filter(d => d.equipe === filtroEquipe);
+        data = data.slice(0, 10);
+        data = sortData(data, key, tableId);
+        renderTabelaDiasSemMov2(data, true);
+      } else if (tableId === 'prioridades') {
+        let data = dadosCache.prioridades || [];
+        if (filtroEquipe) data = data.filter(p => p.equipe === filtroEquipe);
+        if (filtroAtendente) data = data.filter(p => p.atendente === filtroAtendente);
+        data = sortData(data, key, tableId);
+        renderTabelaPrioridades(data, true);
+      }
+    }
+    // ─── Fim Ordenação ────────────────────────────────────────────────────────
     const WORKER_URL = 'https://apdata-dashboard-api.dashatendimento.workers.dev';
     const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://localhost:5000'
@@ -562,7 +648,7 @@
       renderTabelaPrioridades(prioridadesFiltradas);
     }
 
-    function renderTabelaAtendentes(atendentes) {
+    function renderTabelaAtendentes(atendentes, skipSort) {
       const container = document.getElementById('tabelaAtendentes');
 
       if (!atendentes.length) {
@@ -573,10 +659,10 @@
       let html = `<table>
         <thead>
           <tr>
-            <th>Atendente</th>
-            <th>Equipe</th>
-            <th class="text-center">Chamados Abertos</th>
-            <th class="text-center">Encerrados (Mes)</th>
+            ${thSortable('Atendente', 'nome', 'atendentes')}
+            ${thSortable('Equipe', 'equipe', 'atendentes')}
+            ${thSortable('Chamados Abertos', 'chamados_abertos', 'atendentes')}
+            ${thSortable('Encerrados (Mes)', 'chamados_encerrados', 'atendentes')}
           </tr>
         </thead>
         <tbody>`;
@@ -594,7 +680,7 @@
       container.innerHTML = html;
     }
 
-    function renderTabelaHoje(distribuidos) {
+    function renderTabelaHoje(distribuidos, skipSort) {
       const container = document.getElementById('tabelaHoje');
 
       if (!distribuidos.length) {
@@ -605,9 +691,9 @@
       let html = `<table>
         <thead>
           <tr>
-            <th>Atendente</th>
-            <th class="text-center">Chamados Novos Hoje</th>
-            <th class="text-center">Data</th>
+            ${thSortable('Atendente', 'atendente', 'hoje')}
+            ${thSortable('Chamados Novos Hoje', 'chamados_novos', 'hoje')}
+            ${thSortable('Data', 'data', 'hoje')}
           </tr>
         </thead>
         <tbody>`;
@@ -636,6 +722,12 @@
       // Pegar apenas os 10 com mais dias sem movimentação
       lista = lista.slice(0, 10);
 
+      renderTabelaDiasSemMov2(lista);
+    }
+
+    function renderTabelaDiasSemMov2(lista, skipSort) {
+      const container = document.getElementById('tabelaDiasSemMov');
+
       if (!lista.length) {
         container.innerHTML = '<div class="loading"><p>Nenhum chamado encontrado</p></div>';
         return;
@@ -644,13 +736,13 @@
       let html = `<table>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Referencia</th>
-            <th>Equipe</th>
-            <th>Responsavel</th>
-            <th>Status</th>
-            <th class="text-center">Dias sem Mov.</th>
-            <th class="text-center">Dias em Aberto</th>
+            ${thSortable('ID', 'id_chamada', 'diasSemMov')}
+            ${thSortable('Referencia', 'referencia', 'diasSemMov')}
+            ${thSortable('Equipe', 'equipe', 'diasSemMov')}
+            ${thSortable('Responsavel', 'responsavel', 'diasSemMov')}
+            ${thSortable('Status', 'status', 'diasSemMov')}
+            ${thSortable('Dias sem Mov.', 'dias_sem_movimentacao', 'diasSemMov')}
+            ${thSortable('Dias em Aberto', 'dias_em_aberto', 'diasSemMov')}
           </tr>
         </thead>
         <tbody>`;
@@ -672,7 +764,7 @@
       container.innerHTML = html;
     }
 
-    function renderTabelaPrioridades(prioridades) {
+    function renderTabelaPrioridades(prioridades, skipSort) {
       const container = document.getElementById('tabelaPrioridades');
 
       if (!prioridades.length) {
@@ -683,12 +775,12 @@
       let html = `<table>
         <thead>
           <tr>
-            <th>Prioridade</th>
-            <th>ID</th>
-            <th>Referencia</th>
-            <th>Equipe</th>
-            <th>Atendente</th>
-            <th>Status</th>
+            ${thSortable('Prioridade', 'prioridade', 'prioridades')}
+            ${thSortable('ID', 'id_chamada', 'prioridades')}
+            ${thSortable('Referencia', 'referencia', 'prioridades')}
+            ${thSortable('Equipe', 'equipe', 'prioridades')}
+            ${thSortable('Atendente', 'atendente', 'prioridades')}
+            ${thSortable('Status', 'status', 'prioridades')}
           </tr>
         </thead>
         <tbody>`;
