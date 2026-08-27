@@ -351,8 +351,8 @@
         <div class="label">Chamados sem Atendente</div>
       </div>
       <div class="summary-card success">
-        <div class="number" id="totalHoje">-</div>
-        <div class="label">Distribuidos Hoje</div>
+        <div class="number" id="totalPrioridades">-</div>
+        <div class="label">Prioridades</div>
       </div>
     </div>
 
@@ -382,6 +382,17 @@
     <div class="section">
       <div class="section-header" style="background: linear-gradient(135deg, #b71c1c, #d32f2f);">Top 10 — Chamados com Mais Tempo sem Movimentacao</div>
       <div id="tabelaDiasSemMov">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Carregando dados...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de Prioridades -->
+    <div class="section">
+      <div class="section-header" style="background: linear-gradient(135deg, #1b5e20, #388e3c);">Chamados com Prioridade</div>
+      <div id="tabelaPrioridades">
         <div class="loading">
           <div class="spinner"></div>
           <p>Carregando dados...</p>
@@ -520,13 +531,19 @@
       }
       const totalSemAtendente = semAtendenteFiltrado.reduce((sum, s) => sum + s.quantidade, 0);
 
-      const totalHoje = dados.distribuidos_hoje
-        .filter(d => !filtroAtendente || d.atendente === filtroAtendente)
-        .reduce((sum, d) => sum + d.chamados_novos, 0);
+      // Prioridades: filtrar por equipe e atendente
+      let prioridadesFiltradas = dados.prioridades || [];
+      if (filtroEquipe) {
+        prioridadesFiltradas = prioridadesFiltradas.filter(p => p.equipe === filtroEquipe);
+      }
+      if (filtroAtendente) {
+        prioridadesFiltradas = prioridadesFiltradas.filter(p => p.atendente === filtroAtendente);
+      }
+      const totalPrioridades = prioridadesFiltradas.length;
 
       document.getElementById('totalEquipe').textContent = totalEq;
       document.getElementById('totalSemAtendente').textContent = totalSemAtendente;
-      document.getElementById('totalHoje').textContent = totalHoje;
+      document.getElementById('totalPrioridades').textContent = totalPrioridades;
 
       renderTabelaAtendentes(atendentesFiltrados);
 
@@ -538,6 +555,9 @@
 
       // Top 10 dias sem movimentação
       renderTabelaDiasSemMov(dados, filtroEquipe);
+
+      // Lista de prioridades
+      renderTabelaPrioridades(prioridadesFiltradas);
     }
 
     function renderTabelaAtendentes(atendentes) {
@@ -643,6 +663,42 @@
           <td>${d.status}</td>
           <td class="text-center" style="${corDias}">${d.dias_sem_movimentacao}</td>
           <td class="text-center">${d.dias_em_aberto}</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function renderTabelaPrioridades(prioridades) {
+      const container = document.getElementById('tabelaPrioridades');
+
+      if (!prioridades.length) {
+        container.innerHTML = '<div class="loading"><p>Nenhum chamado com prioridade</p></div>';
+        return;
+      }
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>Prioridade</th>
+            <th>ID</th>
+            <th>Referencia</th>
+            <th>Equipe</th>
+            <th>Atendente</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      prioridades.forEach(p => {
+        html += `<tr>
+          <td class="font-bold"><span class="badge badge-accent">${p.prioridade}</span></td>
+          <td>${p.id_chamada}</td>
+          <td>${p.referencia}</td>
+          <td>${p.equipe}</td>
+          <td>${p.atendente}</td>
+          <td>${p.status}</td>
         </tr>`;
       });
 
