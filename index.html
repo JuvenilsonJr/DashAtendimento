@@ -554,6 +554,7 @@
             <th>Atendente</th>
             <th>Equipe</th>
             <th class="text-center">Chamados Abertos</th>
+            <th class="text-center">Encerrados (Mes)</th>
           </tr>
         </thead>
         <tbody>`;
@@ -563,6 +564,7 @@
           <td class="font-bold">${a.nome}</td>
           <td>${a.equipe}</td>
           <td class="text-center"><span class="badge badge-primary">${a.chamados_abertos}</span></td>
+          <td class="text-center"><span class="badge badge-accent">${a.chamados_encerrados || 0}</span></td>
         </tr>`;
       });
 
