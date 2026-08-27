@@ -377,6 +377,17 @@
         </div>
       </div>
     </div>
+
+    <!-- Top 10 Chamados com mais dias sem movimentação -->
+    <div class="section">
+      <div class="section-header" style="background: linear-gradient(135deg, #b71c1c, #d32f2f);">Top 10 — Chamados com Mais Tempo sem Movimentacao</div>
+      <div id="tabelaDiasSemMov">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Carregando dados...</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -524,6 +535,9 @@
         hojeFiltrados = hojeFiltrados.filter(d => d.atendente === filtroAtendente);
       }
       renderTabelaHoje(hojeFiltrados);
+
+      // Top 10 dias sem movimentação
+      renderTabelaDiasSemMov(dados, filtroEquipe);
     }
 
     function renderTabelaAtendentes(atendentes) {
@@ -579,6 +593,50 @@
           <td class="font-bold">${d.atendente}</td>
           <td class="text-center"><span class="badge badge-primary">${d.chamados_novos}</span></td>
           <td class="text-center">${d.data}</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function renderTabelaDiasSemMov(dados, filtroEquipe) {
+      const container = document.getElementById('tabelaDiasSemMov');
+      let lista = dados.dias_sem_movimentacao || [];
+
+      if (filtroEquipe) {
+        lista = lista.filter(d => d.equipe === filtroEquipe);
+      }
+
+      if (!lista.length) {
+        container.innerHTML = '<div class="loading"><p>Nenhum chamado encontrado</p></div>';
+        return;
+      }
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Referencia</th>
+            <th>Equipe</th>
+            <th>Responsavel</th>
+            <th>Status</th>
+            <th class="text-center">Dias sem Mov.</th>
+            <th class="text-center">Dias em Aberto</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      lista.forEach(d => {
+        const corDias = d.dias_sem_movimentacao > 30 ? 'color: #ef5350; font-weight:700;' : '';
+        html += `<tr>
+          <td>${d.id_chamada}</td>
+          <td>${d.referencia}</td>
+          <td>${d.equipe}</td>
+          <td>${d.responsavel}</td>
+          <td>${d.status}</td>
+          <td class="text-center" style="${corDias}">${d.dias_sem_movimentacao}</td>
+          <td class="text-center">${d.dias_em_aberto}</td>
         </tr>`;
       });
 
