@@ -604,9 +604,13 @@
       const container = document.getElementById('tabelaDiasSemMov');
       let lista = dados.dias_sem_movimentacao || [];
 
+      // Filtrar por equipe selecionada
       if (filtroEquipe) {
         lista = lista.filter(d => d.equipe === filtroEquipe);
       }
+
+      // Pegar apenas os 10 com mais dias sem movimentação
+      lista = lista.slice(0, 10);
 
       if (!lista.length) {
         container.innerHTML = '<div class="loading"><p>Nenhum chamado encontrado</p></div>';
