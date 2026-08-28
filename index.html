@@ -381,17 +381,6 @@
       </div>
     </div>
 
-    <!-- Tabela de Distribuidos Hoje -->
-    <div class="section">
-      <div class="section-header accent-header">Chamados Distribuidos Hoje</div>
-      <div id="tabelaHoje">
-        <div class="loading">
-          <div class="spinner"></div>
-          <p>Carregando dados...</p>
-        </div>
-      </div>
-    </div>
-
     <!-- Top 10 Chamados com mais dias sem movimentação -->
     <div class="section">
       <div class="section-header" style="background: linear-gradient(135deg, #7a1a1a, #a32929);">Top 10 — Chamados com Mais Tempo sem Movimentacao</div>
@@ -486,14 +475,15 @@
         let data = dadosCache.atendentes || [];
         if (filtroEquipe) data = data.filter(a => a.equipe === filtroEquipe);
         if (filtroAtendente) data = data.filter(a => a.nome === filtroAtendente);
+        // Mesclar novos_hoje para ordenação
+        let hojeDados = dadosCache.distribuidos_hoje || [];
+        if (filtroEquipe) hojeDados = hojeDados.filter(d => d.equipe === filtroEquipe);
+        if (filtroAtendente) hojeDados = hojeDados.filter(d => d.atendente === filtroAtendente);
+        const hojeMap = {};
+        hojeDados.forEach(d => { const k = `${d.equipe}|${d.atendente}`; hojeMap[k] = (hojeMap[k]||0) + d.chamados_novos; });
+        data = data.map(a => ({...a, novos_hoje: hojeMap[`${a.equipe}|${a.nome}`] || 0}));
         data = sortData(data, key, tableId);
-        renderTabelaAtendentes(data, true);
-      } else if (tableId === 'hoje') {
-        let data = dadosCache.distribuidos_hoje || [];
-        if (filtroEquipe) data = data.filter(d => d.equipe === filtroEquipe);
-        if (filtroAtendente) data = data.filter(d => d.atendente === filtroAtendente);
-        data = sortData(data, key, tableId);
-        renderTabelaHoje(data, true);
+        renderTabelaAtendentes(data, hojeDados, true);
       } else if (tableId === 'diasSemMov') {
         let data = dadosCache.dias_sem_movimentacao || [];
         if (filtroEquipe) data = data.filter(d => d.equipe === filtroEquipe);
@@ -634,8 +624,7 @@
       document.getElementById('totalSemAtendente').textContent = totalSemAtendente;
       document.getElementById('totalPrioridades').textContent = totalPrioridades;
 
-      renderTabelaAtendentes(atendentesFiltrados);
-
+      // Mesclar dados de "hoje" na tabela de atendentes
       let hojeFiltrados = dados.distribuidos_hoje || [];
       if (filtroEquipe) {
         hojeFiltrados = hojeFiltrados.filter(d => d.equipe === filtroEquipe);
@@ -643,7 +632,7 @@
       if (filtroAtendente) {
         hojeFiltrados = hojeFiltrados.filter(d => d.atendente === filtroAtendente);
       }
-      renderTabelaHoje(hojeFiltrados);
+      renderTabelaAtendentes(atendentesFiltrados, hojeFiltrados);
 
       // Top 10 dias sem movimentação
       renderTabelaDiasSemMov(dados, filtroEquipe);
@@ -652,12 +641,21 @@
       renderTabelaPrioridades(prioridadesFiltradas);
     }
 
-    function renderTabelaAtendentes(atendentes, skipSort) {
+    function renderTabelaAtendentes(atendentes, hojeDados, skipSort) {
       const container = document.getElementById('tabelaAtendentes');
 
       if (!atendentes.length) {
         container.innerHTML = '<div class="loading"><p>Nenhum atendente encontrado</p></div>';
         return;
+      }
+
+      // Criar mapa de chamados novos hoje por atendente+equipe
+      const hojeMap = {};
+      if (hojeDados) {
+        hojeDados.forEach(d => {
+          const key = `${d.equipe}|${d.atendente}`;
+          hojeMap[key] = (hojeMap[key] || 0) + d.chamados_novos;
+        });
       }
 
       let html = `<table>
@@ -666,49 +664,21 @@
             ${thSortable('Atendente', 'nome', 'atendentes')}
             ${thSortable('Equipe', 'equipe', 'atendentes')}
             ${thSortable('Chamados Abertos', 'chamados_abertos', 'atendentes')}
+            ${thSortable('Novos Hoje', 'novos_hoje', 'atendentes')}
             ${thSortable('Encerrados (Mes)', 'chamados_encerrados', 'atendentes')}
           </tr>
         </thead>
         <tbody>`;
 
       atendentes.forEach(a => {
+        const key = `${a.equipe}|${a.nome}`;
+        const novosHoje = hojeMap[key] || 0;
         html += `<tr>
           <td class="font-bold">${a.nome}</td>
           <td>${a.equipe}</td>
           <td class="text-center"><span class="badge badge-primary">${a.chamados_abertos}</span></td>
+          <td class="text-center"><span class="badge badge-primary">${novosHoje}</span></td>
           <td class="text-center"><span class="badge badge-accent">${a.chamados_encerrados || 0}</span></td>
-        </tr>`;
-      });
-
-      html += '</tbody></table>';
-      container.innerHTML = html;
-    }
-
-    function renderTabelaHoje(distribuidos, skipSort) {
-      const container = document.getElementById('tabelaHoje');
-
-      if (!distribuidos.length) {
-        container.innerHTML = '<div class="loading"><p>Nenhum chamado distribuido hoje</p></div>';
-        return;
-      }
-
-      let html = `<table>
-        <thead>
-          <tr>
-            ${thSortable('Atendente', 'atendente', 'hoje')}
-            ${thSortable('Equipe', 'equipe', 'hoje')}
-            ${thSortable('Chamados Novos Hoje', 'chamados_novos', 'hoje')}
-            ${thSortable('Data', 'data', 'hoje')}
-          </tr>
-        </thead>
-        <tbody>`;
-
-      distribuidos.forEach(d => {
-        html += `<tr>
-          <td class="font-bold">${d.atendente}</td>
-          <td>${d.equipe}</td>
-          <td class="text-center"><span class="badge badge-primary">${d.chamados_novos}</span></td>
-          <td class="text-center">${d.data}</td>
         </tr>`;
       });
 
