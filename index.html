@@ -1014,9 +1014,24 @@
       if (metasCache) renderMetasListagem();
     }
 
+    // Os nomes de equipe/atendente vem do banco com espacos extras (ex: "Diego Leal Silva      ").
+    // Sem normalizar, o valor do <option> (aparado) nunca casa com o dado cru e o filtro fica vazio.
+    function normalizarTexto(v) {
+      return (v === null || v === undefined) ? '' : String(v).trim();
+    }
+
+    // Escapa texto vindo da API antes de injetar via innerHTML
+    function escaparHtml(v) {
+      return normalizarTexto(v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
     function getMetasFiltros() {
-      const equipe = document.getElementById('metaFiltroEquipe').value;
-      const atendente = document.getElementById('metaFiltroAtendente').value;
+      const equipe = normalizarTexto(document.getElementById('metaFiltroEquipe').value);
+      const atendente = normalizarTexto(document.getElementById('metaFiltroAtendente').value);
       const anoVal = document.getElementById('metaFiltroAno').value;
       const mesVal = document.getElementById('metaFiltroMes').value;
       const anos = anoVal ? [parseInt(anoVal)] : [];
@@ -1026,8 +1041,8 @@
 
     function filtrarMetas(dados, filtros) {
       let resultado = [...dados];
-      if (filtros.equipe) resultado = resultado.filter(d => d.equipe === filtros.equipe);
-      if (filtros.atendente) resultado = resultado.filter(d => d.atendente === filtros.atendente);
+      if (filtros.equipe) resultado = resultado.filter(d => normalizarTexto(d.equipe) === filtros.equipe);
+      if (filtros.atendente) resultado = resultado.filter(d => normalizarTexto(d.atendente) === filtros.atendente);
       if (filtros.anos.length) resultado = resultado.filter(d => filtros.anos.includes(d.ano));
       if (filtros.meses.length) resultado = resultado.filter(d => filtros.meses.includes(d.mes));
       return resultado;
@@ -1052,13 +1067,18 @@
 
         if (selEquipe.options.length <= 1) {
           const equipes = new Set();
-          (metasCache.satisfacao||[]).forEach(d => { if (d.equipe) equipes.add(d.equipe); });
-          (metasCache.primeiro_atendimento||[]).forEach(d => { if (d.equipe) equipes.add(d.equipe); });
-          (metasCache.sla||[]).forEach(d => { if (d.equipe) equipes.add(d.equipe); });
-          selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
-          [...equipes].sort().forEach(nome => {
-            selEquipe.innerHTML += '<option value="' + nome + '">' + nome + '</option>';
+          const coletarEquipes = lista => (lista || []).forEach(d => {
+            const nome = normalizarTexto(d.equipe);
+            if (nome) equipes.add(nome);
           });
+          coletarEquipes(metasCache.satisfacao);
+          coletarEquipes(metasCache.primeiro_atendimento);
+          coletarEquipes(metasCache.sla);
+          let htmlEq = '<option value="">Todas as equipes</option>';
+          [...equipes].sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(nome => {
+            htmlEq += '<option value="' + escaparHtml(nome) + '">' + escaparHtml(nome) + '</option>';
+          });
+          selEquipe.innerHTML = htmlEq;
         }
 
         if (selAno.options.length === 0) {
@@ -1084,25 +1104,37 @@
     }
 
     function renderMetas() {
-      // PASSO 1: Atualizar dropdown de atendentes pela equipe (mesma lógica da aba Atendimento)
-      var selAtendente = document.getElementById('metaFiltroAtendente');
-      var equipeSel = document.getElementById('metaFiltroEquipe').value;
-      var atAnterior = selAtendente.value;
-      var todosRegistros = (metasCache.satisfacao||[]).concat(metasCache.primeiro_atendimento||[]).concat(metasCache.sla||[]);
-      var atendentesSet = {};
-      for (var i = 0; i < todosRegistros.length; i++) {
-        var reg = todosRegistros[i];
-        var nomeAt = (reg.atendente || '').trim();
-        if (nomeAt && (!equipeSel || reg.equipe === equipeSel)) {
-          atendentesSet[nomeAt] = true;
-        }
-      }
-      var atendentesOrdenados = Object.keys(atendentesSet).sort();
-      var htmlAt = '<option value="">Todos os atendentes</option>';
-      for (var k = 0; k < atendentesOrdenados.length; k++) {
-        var s = (atendentesOrdenados[k] === atAnterior) ? ' selected' : '';
-        htmlAt += '<option value="' + atendentesOrdenados[k] + '"' + s + '>' + atendentesOrdenados[k] + '</option>';
-      }
+      // PASSO 1: o dropdown de atendentes lista apenas quem tem registro no recorte atual
+      // (equipe + ano + mes). Os dados de metas sao historicos e associam um mesmo atendente
+      // a varias equipes, entao filtrar so por equipe deixa a lista quase inteira.
+      const selAtendente = document.getElementById('metaFiltroAtendente');
+      const equipeSel = normalizarTexto(document.getElementById('metaFiltroEquipe').value);
+      const anoSel = document.getElementById('metaFiltroAno').value;
+      const mesSel = document.getElementById('metaFiltroMes').value;
+      const anoNum = anoSel ? parseInt(anoSel) : null;
+      const mesNum = mesSel ? parseInt(mesSel) : null;
+      const atAnterior = normalizarTexto(selAtendente.value);
+
+      const todosRegistros = (metasCache.satisfacao || [])
+        .concat(metasCache.primeiro_atendimento || [])
+        .concat(metasCache.sla || []);
+
+      const atendentesSet = new Set();
+      todosRegistros.forEach(reg => {
+        const nomeAt = normalizarTexto(reg.atendente);
+        if (!nomeAt) return;
+        if (equipeSel && normalizarTexto(reg.equipe) !== equipeSel) return;
+        if (anoNum !== null && reg.ano !== anoNum) return;
+        if (mesNum !== null && reg.mes !== mesNum) return;
+        atendentesSet.add(nomeAt);
+      });
+
+      const atendentesOrdenados = [...atendentesSet].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      let htmlAt = '<option value="">Todos os atendentes</option>';
+      atendentesOrdenados.forEach(nome => {
+        const marcado = (nome === atAnterior) ? ' selected' : '';
+        htmlAt += '<option value="' + escaparHtml(nome) + '"' + marcado + '>' + escaparHtml(nome) + '</option>';
+      });
       selAtendente.innerHTML = htmlAt;
 
 
@@ -1166,7 +1198,7 @@
 
       let html = '<table><thead><tr>' + thSortable('Equipe','equipe','metasLista') + thSortable('Atendente','atendente','metasLista') + thSortable('Classificacao','classificacao','metasLista') + thSortable('Qtde','qtde','metasLista') + thSortable('Ano','ano','metasLista') + thSortable('Mes','mes','metasLista') + '</tr></thead><tbody>';
       dados.forEach(d => {
-        html += '<tr><td>' + d.equipe + '</td><td>' + d.atendente + '</td><td><span class="badge badge-accent">' + d.classificacao + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
+        html += '<tr><td>' + escaparHtml(d.equipe) + '</td><td>' + escaparHtml(d.atendente) + '</td><td><span class="badge badge-accent">' + escaparHtml(d.classificacao) + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
       });
       html += '</tbody></table>';
       container.innerHTML = html;
@@ -1178,7 +1210,7 @@
       if (!dados.length) { container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>'; return; }
       let html = '<table><thead><tr>' + thSortable('Equipe','equipe','metasLista') + thSortable('Atendente','atendente','metasLista') + thSortable('Classificacao','classificacao','metasLista') + thSortable('Qtde','qtde','metasLista') + thSortable('Ano','ano','metasLista') + thSortable('Mes','mes','metasLista') + '</tr></thead><tbody>';
       dados.forEach(d => {
-        html += '<tr><td>' + d.equipe + '</td><td>' + d.atendente + '</td><td><span class="badge badge-accent">' + d.classificacao + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
+        html += '<tr><td>' + escaparHtml(d.equipe) + '</td><td>' + escaparHtml(d.atendente) + '</td><td><span class="badge badge-accent">' + escaparHtml(d.classificacao) + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
       });
       html += '</tbody></table>';
       container.innerHTML = html;
