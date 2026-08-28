@@ -994,6 +994,11 @@
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelector(`.main-tab[onclick*="${tab}"]`).classList.add('active');
       document.getElementById(`tab-${tab}`).classList.add('active');
+
+      // Carregar metas automaticamente na primeira vez
+      if (tab === 'metas' && !metasCache) {
+        carregarMetas();
+      }
     }
 
     // ─── Metas ────────────────────────────────────────────────────────────────
@@ -1105,11 +1110,11 @@
     }
 
     function renderPieChart(canvasId, legendId, dados, field) {
-      // Contar por classificação
+      // Contar por classificação (somando qtde)
       const contagem = {};
       dados.forEach(d => {
         const val = d[field] || 'Sem classificação';
-        contagem[val] = (contagem[val] || 0) + 1;
+        contagem[val] = (contagem[val] || 0) + (d.qtde || 1);
       });
 
       const labels = Object.keys(contagem);
@@ -1178,19 +1183,17 @@
       }
 
       let html = `<table><thead><tr>
-        <th>ID</th><th>Equipe</th><th>Atendente</th><th>Classificacao</th><th>Referencia</th><th>Status</th><th>Ano</th><th>Mes</th>
+        <th>Equipe</th><th>Atendente</th><th>Classificacao</th><th>Qtde</th><th>Ano</th><th>Mes</th>
       </tr></thead><tbody>`;
 
       dados.forEach(d => {
         html += `<tr>
-          <td>${d.id_chamada}</td>
           <td>${d.equipe}</td>
           <td>${d.atendente}</td>
           <td><span class="badge badge-accent">${d.classificacao}</span></td>
-          <td>${d.referencia || ''}</td>
-          <td>${d.status || ''}</td>
-          <td>${d.ano}</td>
-          <td>${d.mes}</td>
+          <td class="text-center">${d.qtde || 0}</td>
+          <td class="text-center">${d.ano}</td>
+          <td class="text-center">${d.mes}</td>
         </tr>`;
       });
 
