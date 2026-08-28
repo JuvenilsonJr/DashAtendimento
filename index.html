@@ -1061,6 +1061,9 @@
       const selAtendente = document.getElementById('metaFiltroAtendente');
       const selAno = document.getElementById('metaFiltroAno');
 
+      const eqAtual = selEquipe.value;
+      const atAtual = selAtendente.value;
+
       // Equipes
       const equipes = new Set();
       metasCache.satisfacao.forEach(d => equipes.add(d.equipe));
@@ -1069,19 +1072,25 @@
 
       selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
       [...equipes].sort().forEach(nome => {
-        selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
+        if (nome) selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
       });
+      if (eqAtual) selEquipe.value = eqAtual;
 
-      // Atendentes
+      // Atendentes - filtrado pela equipe selecionada
+      const equipeFiltro = selEquipe.value;
+      const todasFontes = [...metasCache.satisfacao, ...metasCache.primeiro_atendimento, ...metasCache.sla];
       const atendentes = new Set();
-      metasCache.satisfacao.forEach(d => atendentes.add(d.atendente));
-      metasCache.primeiro_atendimento.forEach(d => atendentes.add(d.atendente));
-      metasCache.sla.forEach(d => atendentes.add(d.atendente));
+      todasFontes.forEach(d => {
+        if (!equipeFiltro || d.equipe === equipeFiltro) {
+          if (d.atendente) atendentes.add(d.atendente);
+        }
+      });
 
       selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
       [...atendentes].sort().forEach(nome => {
         selAtendente.innerHTML += `<option value="${nome}">${nome}</option>`;
       });
+      if (atAtual && atendentes.has(atAtual)) selAtendente.value = atAtual;
 
       // Anos
       const anos = new Set();
@@ -1204,18 +1213,7 @@
     // Eventos filtros metas
     document.getElementById('metaFiltroEquipe').addEventListener('change', () => {
       if (metasCache) {
-        // Atualizar lista de atendentes baseado na equipe selecionada
-        const equipe = document.getElementById('metaFiltroEquipe').value;
-        const selAtendente = document.getElementById('metaFiltroAtendente');
-        const atendentes = new Set();
-        const todasFontes = [...metasCache.satisfacao, ...metasCache.primeiro_atendimento, ...metasCache.sla];
-        todasFontes.forEach(d => {
-          if (!equipe || d.equipe === equipe) atendentes.add(d.atendente);
-        });
-        selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
-        [...atendentes].sort().forEach(nome => {
-          if (nome) selAtendente.innerHTML += `<option value="${nome}">${nome}</option>`;
-        });
+        preencherFiltrosMetas();
         renderMetas();
       }
     });
