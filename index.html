@@ -518,13 +518,13 @@
     <div class="filters">
       <div class="filter-group">
         <label>Equipe</label>
-        <select id="metaFiltroEquipe" onchange="if(metasCache){atualizarAtendentesMetasPorEquipe();renderMetas();}">
+        <select id="metaFiltroEquipe" onchange="if(metasCache){atualizarAtendentesMetasPorEquipe();setTimeout(renderMetas,100);}">
           <option value="">Todas as equipes</option>
         </select>
       </div>
       <div class="filter-group">
         <label>Atendente</label>
-        <select id="metaFiltroAtendente" onchange="if(metasCache){renderMetas();}" disabled>
+        <select id="metaFiltroAtendente" onchange="if(metasCache){renderMetas();}">
           <option value="">Todos os atendentes</option>
         </select>
       </div>
@@ -759,6 +759,7 @@
       const atendentesUnicos = [...new Set(atendentesLista)].sort();
 
       selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
+
       atendentesUnicos.forEach(nome => {
         const opt = document.createElement('option');
         opt.value = nome;
@@ -1083,6 +1084,7 @@
       var selEquipe = document.getElementById('metaFiltroEquipe');
       var equipeSelecionada = selEquipe.value;
 
+
       // Se nenhuma equipe selecionada, desabilitar atendente
       if (!equipeSelecionada) {
         selAtendente.innerHTML = '<option value="">Selecione uma equipe primeiro</option>';
@@ -1102,6 +1104,7 @@
       }
       atendentes.sort();
       selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
+
       for (var j = 0; j < atendentes.length; j++) {
         selAtendente.innerHTML += '<option value="' + atendentes[j] + '">' + atendentes[j] + '</option>';
       }
