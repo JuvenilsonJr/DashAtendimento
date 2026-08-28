@@ -1106,7 +1106,7 @@
       const slaFiltrado = filtrarMetas(metasCache.sla || [], filtros);
 
       renderPieChart('chartSatisfacao', 'legendSatisfacao', satFiltrado, 'classificacao', null);
-      renderPieChart('chartPrimAtend', 'legendPrimAtend', primFiltrado, 'classificacao', {'Resolvidos no 1\u00ba Atendimento':'#4CAF50','Fora do 1\u00ba Atendimento':'#F44336','N\u00e3o Resolvidos no 1\u00ba Atendimento':'#F44336'});
+      renderPieChart('chartPrimAtend', 'legendPrimAtend', primFiltrado, 'classificacao', {'Resolvidos no 1\u00ba Atendimento':'#4CAF50','Resolvidos fora do 1\u00ba Atendimento':'#F44336','Fora do 1\u00ba Atendimento':'#F44336','N\u00e3o Resolvidos no 1\u00ba Atendimento':'#F44336'});
       renderPieChart('chartSLA', 'legendSLA', slaFiltrado, 'classificacao', {'Dentro do SLA':'#4CAF50','Fora do SLA':'#F44336'});
 
       renderMetasListagem();
