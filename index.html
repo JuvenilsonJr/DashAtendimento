@@ -101,12 +101,6 @@
     .sub-tab:hover { color: var(--text); }
     .sub-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-    /* Multi-select */
-    .filter-group select[multiple] {
-      min-height: 80px;
-      min-width: 140px;
-    }
-
     /* Gráficos */
     .charts-row {
       display: grid;
@@ -536,12 +530,13 @@
       </div>
       <div class="filter-group">
         <label>Ano</label>
-        <select id="metaFiltroAno" multiple>
+        <select id="metaFiltroAno">
         </select>
       </div>
       <div class="filter-group">
         <label>Mes</label>
-        <select id="metaFiltroMes" multiple>
+        <select id="metaFiltroMes">
+          <option value="">Todos os meses</option>
           <option value="1">Janeiro</option>
           <option value="2">Fevereiro</option>
           <option value="3">Marco</option>
@@ -1016,10 +1011,10 @@
     function getMetasFiltros() {
       const equipe = document.getElementById('metaFiltroEquipe').value;
       const atendente = document.getElementById('metaFiltroAtendente').value;
-      const anosSelect = document.getElementById('metaFiltroAno');
-      const mesesSelect = document.getElementById('metaFiltroMes');
-      const anos = [...anosSelect.selectedOptions].map(o => parseInt(o.value));
-      const meses = [...mesesSelect.selectedOptions].map(o => parseInt(o.value));
+      const anoVal = document.getElementById('metaFiltroAno').value;
+      const mesVal = document.getElementById('metaFiltroMes').value;
+      const anos = anoVal ? [parseInt(anoVal)] : [];
+      const meses = mesVal ? [parseInt(mesVal)] : [];
       return { equipe, atendente, anos, meses };
     }
 
@@ -1063,26 +1058,46 @@
 
       const eqAtual = selEquipe.value;
       const atAtual = selAtendente.value;
+      const anoAtual = selAno.value || String(new Date().getFullYear());
 
       // Equipes
       const equipes = new Set();
-      metasCache.satisfacao.forEach(d => equipes.add(d.equipe));
-      metasCache.primeiro_atendimento.forEach(d => equipes.add(d.equipe));
-      metasCache.sla.forEach(d => equipes.add(d.equipe));
+      metasCache.satisfacao.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
+      metasCache.primeiro_atendimento.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
+      metasCache.sla.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
 
       selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
       [...equipes].sort().forEach(nome => {
-        if (nome) selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
+        selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
       });
       if (eqAtual) selEquipe.value = eqAtual;
 
       // Atendentes - filtrado pela equipe selecionada
-      const equipeFiltro = selEquipe.value;
-      const todasFontes = [...metasCache.satisfacao, ...metasCache.primeiro_atendimento, ...metasCache.sla];
+      atualizarAtendentesMetasPorEquipe();
+
+      // Anos
+      const anos = new Set();
+      metasCache.satisfacao.forEach(d => { if (d.ano) anos.add(d.ano); });
+      metasCache.primeiro_atendimento.forEach(d => { if (d.ano) anos.add(d.ano); });
+      metasCache.sla.forEach(d => { if (d.ano) anos.add(d.ano); });
+
+      selAno.innerHTML = '';
+      [...anos].sort((a,b) => b-a).forEach(ano => {
+        const selected = String(ano) === anoAtual ? ' selected' : '';
+        selAno.innerHTML += `<option value="${ano}"${selected}>${ano}</option>`;
+      });
+    }
+
+    function atualizarAtendentesMetasPorEquipe() {
+      const selAtendente = document.getElementById('metaFiltroAtendente');
+      const equipeSelecionada = document.getElementById('metaFiltroEquipe').value;
+      const atAtual = selAtendente.value;
+
       const atendentes = new Set();
+      const todasFontes = [...metasCache.satisfacao, ...metasCache.primeiro_atendimento, ...metasCache.sla];
       todasFontes.forEach(d => {
-        if (!equipeFiltro || d.equipe === equipeFiltro) {
-          if (d.atendente) atendentes.add(d.atendente);
+        if (d.atendente && (!equipeSelecionada || d.equipe === equipeSelecionada)) {
+          atendentes.add(d.atendente);
         }
       });
 
@@ -1090,18 +1105,11 @@
       [...atendentes].sort().forEach(nome => {
         selAtendente.innerHTML += `<option value="${nome}">${nome}</option>`;
       });
-      if (atAtual && atendentes.has(atAtual)) selAtendente.value = atAtual;
 
-      // Anos
-      const anos = new Set();
-      metasCache.satisfacao.forEach(d => anos.add(d.ano));
-      metasCache.primeiro_atendimento.forEach(d => anos.add(d.ano));
-      metasCache.sla.forEach(d => anos.add(d.ano));
-
-      selAno.innerHTML = '';
-      [...anos].sort((a,b) => b-a).forEach(ano => {
-        selAno.innerHTML += `<option value="${ano}">${ano}</option>`;
-      });
+      // Manter seleção se ainda existir na lista filtrada
+      if (atAtual && atendentes.has(atAtual)) {
+        selAtendente.value = atAtual;
+      }
     }
 
     function renderMetas() {
@@ -1213,7 +1221,7 @@
     // Eventos filtros metas
     document.getElementById('metaFiltroEquipe').addEventListener('change', () => {
       if (metasCache) {
-        preencherFiltrosMetas();
+        atualizarAtendentesMetasPorEquipe();
         renderMetas();
       }
     });
