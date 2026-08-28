@@ -518,13 +518,13 @@
     <div class="filters">
       <div class="filter-group">
         <label>Equipe</label>
-        <select id="metaFiltroEquipe" onchange="metasEquipeChanged()">
+        <select id="metaFiltroEquipe" >
           <option value="">Todas as equipes</option>
         </select>
       </div>
       <div class="filter-group">
         <label>Atendente</label>
-        <select id="metaFiltroAtendente" onchange="if(metasCache)renderMetas()">
+        <select id="metaFiltroAtendente" >
           <option value="">Todos os atendentes</option>
         </select>
       </div>
@@ -1005,7 +1005,7 @@
     function switchMetaSubTab(tab) {
       metaSubTabAtiva = tab;
       document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
-      document.querySelector(`.sub-tab[onclick*="${tab}"]`).classList.add('active');
+      document.querySelector('.sub-tab[onclick*="' + tab + '"]').classList.add('active');
       if (metasCache) renderMetasListagem();
     }
 
@@ -1036,8 +1036,8 @@
       errorBox.style.display = 'none';
 
       try {
-        const resp = await fetch(`${API_URL}/api/metas`);
-        if (!resp.ok) throw new Error(`Erro HTTP ${resp.status}`);
+        const resp = await fetch(API_URL + '/api/metas');
+        if (!resp.ok) throw new Error('Erro HTTP ' + resp.status);
         metasCache = await resp.json();
         if (metasCache.error) throw new Error(metasCache.error);
 
@@ -1047,31 +1047,30 @@
 
         if (selEquipe.options.length <= 1) {
           const equipes = new Set();
-          metasCache.satisfacao.forEach(d => { if (d.equipe) equipes.add(d.equipe.trim()); });
-          metasCache.primeiro_atendimento.forEach(d => { if (d.equipe) equipes.add(d.equipe.trim()); });
-          metasCache.sla.forEach(d => { if (d.equipe) equipes.add(d.equipe.trim()); });
+          (metasCache.satisfacao||[]).forEach(d => { if (d.equipe) equipes.add(d.equipe); });
+          (metasCache.primeiro_atendimento||[]).forEach(d => { if (d.equipe) equipes.add(d.equipe); });
+          (metasCache.sla||[]).forEach(d => { if (d.equipe) equipes.add(d.equipe); });
           selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
           [...equipes].sort().forEach(nome => {
-            selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
+            selEquipe.innerHTML += '<option value="' + nome + '">' + nome + '</option>';
           });
         }
 
         if (selAno.options.length === 0) {
           const anos = new Set();
-          metasCache.satisfacao.forEach(d => { if (d.ano) anos.add(d.ano); });
-          metasCache.primeiro_atendimento.forEach(d => { if (d.ano) anos.add(d.ano); });
-          metasCache.sla.forEach(d => { if (d.ano) anos.add(d.ano); });
+          (metasCache.satisfacao||[]).forEach(d => { if (d.ano) anos.add(d.ano); });
+          (metasCache.primeiro_atendimento||[]).forEach(d => { if (d.ano) anos.add(d.ano); });
+          (metasCache.sla||[]).forEach(d => { if (d.ano) anos.add(d.ano); });
           const anoAtual = new Date().getFullYear();
           [...anos].sort((a,b) => b-a).forEach(ano => {
             const selected = ano === anoAtual ? ' selected' : '';
-            selAno.innerHTML += `<option value="${ano}"${selected}>${ano}</option>`;
+            selAno.innerHTML += '<option value="' + ano + '"' + selected + '>' + ano + '</option>';
           });
         }
 
-        atualizarAtendentesMetasPorEquipe();
         renderMetas();
       } catch (err) {
-        errorBox.textContent = `Erro: ${err.message}`;
+        errorBox.textContent = 'Erro: ' + err.message;
         errorBox.style.display = 'block';
       } finally {
         btn.disabled = false;
@@ -1079,109 +1078,71 @@
       }
     }
 
-
-    function metasEquipeChanged() {
-      if (!metasCache) return;
-      atualizarAtendentesMetasPorEquipe();
-      renderMetas();
-    }
-    function atualizarAtendentesMetasPorEquipe() {
+    function renderMetas() {
+      // PASSO 1: Atualizar dropdown de atendentes pela equipe (mesma lógica da aba Atendimento)
       var selAtendente = document.getElementById('metaFiltroAtendente');
-      var selEquipe = document.getElementById('metaFiltroEquipe');
-      var equipeSelecionada = selEquipe.value;
-
-
-      // Se nenhuma equipe selecionada, desabilitar atendente
-      if (!equipeSelecionada) {
-        selAtendente.innerHTML = '<option value="">Selecione uma equipe primeiro</option>';
-        selAtendente.disabled = true;
-        return;
-      }
-
-      selAtendente.disabled = false;
-      var atendentes = [];
-      var fontes = (metasCache.satisfacao||[]).concat(metasCache.primeiro_atendimento||[]).concat(metasCache.sla||[]);
-      for (var i = 0; i < fontes.length; i++) {
-        var eq = fontes[i].equipe || '';
-        var at = fontes[i].atendente || '';
-        if (at && eq === equipeSelecionada && atendentes.indexOf(at) === -1) {
-          atendentes.push(at);
+      var equipeSel = document.getElementById('metaFiltroEquipe').value;
+      var atAnterior = selAtendente.value;
+      var todosRegistros = (metasCache.satisfacao||[]).concat(metasCache.primeiro_atendimento||[]).concat(metasCache.sla||[]);
+      var atendentesSet = {};
+      for (var i = 0; i < todosRegistros.length; i++) {
+        var reg = todosRegistros[i];
+        if (reg.atendente && (!equipeSel || reg.equipe === equipeSel)) {
+          atendentesSet[reg.atendente] = true;
         }
       }
-      atendentes.sort();
-      selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
-
-      for (var j = 0; j < atendentes.length; j++) {
-        selAtendente.innerHTML += '<option value="' + atendentes[j] + '">' + atendentes[j] + '</option>';
+      var atendentesOrdenados = Object.keys(atendentesSet).sort();
+      var htmlAt = '<option value="">Todos os atendentes</option>';
+      for (var k = 0; k < atendentesOrdenados.length; k++) {
+        var s = (atendentesOrdenados[k] === atAnterior) ? ' selected' : '';
+        htmlAt += '<option value="' + atendentesOrdenados[k] + '"' + s + '>' + atendentesOrdenados[k] + '</option>';
       }
-    }
+      selAtendente.innerHTML = htmlAt;
 
-    function renderMetas() {
+      // PASSO 2: Filtrar dados e renderizar gráficos
       const filtros = getMetasFiltros();
+      const satFiltrado = filtrarMetas(metasCache.satisfacao || [], filtros);
+      const primFiltrado = filtrarMetas(metasCache.primeiro_atendimento || [], filtros);
+      const slaFiltrado = filtrarMetas(metasCache.sla || [], filtros);
 
-      const satFiltrado = filtrarMetas(metasCache.satisfacao, filtros);
-      const primFiltrado = filtrarMetas(metasCache.primeiro_atendimento, filtros);
-      const slaFiltrado = filtrarMetas(metasCache.sla, filtros);
-
-      renderPieChart('chartSatisfacao', 'legendSatisfacao', satFiltrado, 'classificacao');
-      renderPieChart('chartPrimAtend', 'legendPrimAtend', primFiltrado, 'classificacao');
-      renderPieChart('chartSLA', 'legendSLA', slaFiltrado, 'classificacao');
+      renderPieChart('chartSatisfacao', 'legendSatisfacao', satFiltrado, 'classificacao', null);
+      renderPieChart('chartPrimAtend', 'legendPrimAtend', primFiltrado, 'classificacao', {'Resolvidos no 1\u00ba Atendimento':'#4CAF50','Fora do 1\u00ba Atendimento':'#F44336','N\u00e3o Resolvidos no 1\u00ba Atendimento':'#F44336'});
+      renderPieChart('chartSLA', 'legendSLA', slaFiltrado, 'classificacao', {'Dentro do SLA':'#4CAF50','Fora do SLA':'#F44336'});
 
       renderMetasListagem();
     }
 
-    function renderPieChart(canvasId, legendId, dados, field) {
-      // Contar por classificação (somando qtde)
+    function renderPieChart(canvasId, legendId, dados, field, coresCustom) {
       const contagem = {};
       dados.forEach(d => {
-        const val = d[field] || 'Sem classificação';
+        const val = d[field] || 'Sem classificacao';
         contagem[val] = (contagem[val] || 0) + (d.qtde || 1);
       });
 
       const labels = Object.keys(contagem);
       const values = Object.values(contagem);
       const total = values.reduce((s, v) => s + v, 0);
-      const cores = ['#4CAF50', '#F44336', '#FF9800', '#2196F3', '#9C27B0', '#00BCD4', '#795548'];
+      const coresPadrao = ['#4CAF50', '#F44336', '#FF9800', '#2196F3', '#9C27B0', '#00BCD4', '#795548'];
+      const cores = labels.map((l, i) => (coresCustom && coresCustom[l]) ? coresCustom[l] : coresPadrao[i % coresPadrao.length]);
 
-      // Destruir chart anterior se existir
-      if (chartInstances[canvasId]) {
-        chartInstances[canvasId].destroy();
-      }
+      if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
 
       const ctx = document.getElementById(canvasId).getContext('2d');
       chartInstances[canvasId] = new Chart(ctx, {
         type: 'pie',
-        data: {
-          labels: labels,
-          datasets: [{
-            data: values,
-            backgroundColor: cores.slice(0, labels.length),
-            borderWidth: 1,
-            borderColor: 'var(--card-bg)',
-          }]
-        },
+        data: { labels, datasets: [{ data: values, backgroundColor: cores, borderWidth: 1 }] },
         options: {
-          responsive: true,
-          maintainAspectRatio: true,
+          responsive: true, maintainAspectRatio: true,
           plugins: {
             legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function(ctx) {
-                  const pct = total ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                  return `${ctx.label}: ${ctx.raw} (${pct}%)`;
-                }
-              }
-            }
+            tooltip: { callbacks: { label: function(c) { return c.label + ': ' + c.raw + ' (' + (total ? ((c.raw/total)*100).toFixed(1) : 0) + '%)'; } } }
           }
         }
       });
 
-      // Legend
-      const legendEl = document.getElementById(legendId);
-      legendEl.innerHTML = labels.map((l, i) => {
-        const pct = total ? ((values[i] / total) * 100).toFixed(1) : 0;
-        return `<span class="legend-item"><span class="legend-color" style="background:${cores[i]}"></span>${l}: ${pct}%</span>`;
+      document.getElementById(legendId).innerHTML = labels.map((l, i) => {
+        const pct = total ? ((values[i]/total)*100).toFixed(1) : 0;
+        return '<span class="legend-item"><span class="legend-color" style="background:' + cores[i] + '"></span>' + l + ': ' + pct + '%</span>';
       }).join('');
     }
 
@@ -1190,41 +1151,26 @@
       const filtros = getMetasFiltros();
 
       let dados;
-      if (metaSubTabAtiva === 'satisfacao') {
-        dados = filtrarMetas(metasCache.satisfacao, filtros);
-      } else if (metaSubTabAtiva === 'primAtend') {
-        dados = filtrarMetas(metasCache.primeiro_atendimento, filtros);
-      } else {
-        dados = filtrarMetas(metasCache.sla, filtros);
-      }
+      if (metaSubTabAtiva === 'satisfacao') dados = filtrarMetas(metasCache.satisfacao || [], filtros);
+      else if (metaSubTabAtiva === 'primAtend') dados = filtrarMetas(metasCache.primeiro_atendimento || [], filtros);
+      else dados = filtrarMetas(metasCache.sla || [], filtros);
 
-      if (!dados.length) {
-        container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>';
-        return;
-      }
+      if (!dados.length) { container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>'; return; }
 
-      let html = `<table><thead><tr>
-        <th>Equipe</th><th>Atendente</th><th>Classificacao</th><th>Qtde</th><th>Ano</th><th>Mes</th>
-      </tr></thead><tbody>`;
-
+      let html = '<table><thead><tr><th>Equipe</th><th>Atendente</th><th>Classificacao</th><th>Qtde</th><th>Ano</th><th>Mes</th></tr></thead><tbody>';
       dados.forEach(d => {
-        html += `<tr>
-          <td>${d.equipe}</td>
-          <td>${d.atendente}</td>
-          <td><span class="badge badge-accent">${d.classificacao}</span></td>
-          <td class="text-center">${d.qtde || 0}</td>
-          <td class="text-center">${d.ano}</td>
-          <td class="text-center">${d.mes}</td>
-        </tr>`;
+        html += '<tr><td>' + d.equipe + '</td><td>' + d.atendente + '</td><td><span class="badge badge-accent">' + d.classificacao + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
       });
-
       html += '</tbody></table>';
       container.innerHTML = html;
     }
 
-    // Eventos filtros metas (via onchange inline no HTML)
-    document.getElementById('metaFiltroAno').addEventListener('change', () => { if (metasCache) renderMetas(); });
-    document.getElementById('metaFiltroMes').addEventListener('change', () => { if (metasCache) renderMetas(); });
+    // Eventos filtros metas
+    document.getElementById('metaFiltroEquipe').onchange = function() { if (metasCache) renderMetas(); };
+    document.getElementById('metaFiltroAtendente').onchange = function() { if (metasCache) renderMetas(); };
+    document.getElementById('metaFiltroAno').onchange = function() { if (metasCache) renderMetas(); };
+    document.getElementById('metaFiltroMes').onchange = function() { if (metasCache) renderMetas(); };
+
   </script>
 </body>
 </html>
