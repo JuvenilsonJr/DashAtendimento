@@ -524,7 +524,7 @@
       </div>
       <div class="filter-group">
         <label>Atendente</label>
-        <select id="metaFiltroAtendente" onchange="if(metasCache){renderMetas();}">
+        <select id="metaFiltroAtendente" onchange="if(metasCache){renderMetas();}" disabled>
           <option value="">Todos os atendentes</option>
         </select>
       </div>
@@ -1079,26 +1079,31 @@
     }
 
     function atualizarAtendentesMetasPorEquipe() {
-      const selAtendente = document.getElementById('metaFiltroAtendente');
-      const equipeSelecionada = document.getElementById('metaFiltroEquipe').value.trim();
-      const atAtual = selAtendente.value;
+      var selAtendente = document.getElementById('metaFiltroAtendente');
+      var selEquipe = document.getElementById('metaFiltroEquipe');
+      var equipeSelecionada = selEquipe.value;
 
-      const atendentes = new Set();
-      const todasFontes = [...metasCache.satisfacao, ...metasCache.primeiro_atendimento, ...metasCache.sla];
-      todasFontes.forEach(d => {
-        if (d.atendente && (!equipeSelecionada || (d.equipe||'').trim() === equipeSelecionada)) {
-          atendentes.add(d.atendente);
+      // Se nenhuma equipe selecionada, desabilitar atendente
+      if (!equipeSelecionada) {
+        selAtendente.innerHTML = '<option value="">Selecione uma equipe primeiro</option>';
+        selAtendente.disabled = true;
+        return;
+      }
+
+      selAtendente.disabled = false;
+      var atendentes = [];
+      var fontes = (metasCache.satisfacao||[]).concat(metasCache.primeiro_atendimento||[]).concat(metasCache.sla||[]);
+      for (var i = 0; i < fontes.length; i++) {
+        var eq = fontes[i].equipe || '';
+        var at = fontes[i].atendente || '';
+        if (at && eq === equipeSelecionada && atendentes.indexOf(at) === -1) {
+          atendentes.push(at);
         }
-      });
-
+      }
+      atendentes.sort();
       selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
-      [...atendentes].sort().forEach(nome => {
-        selAtendente.innerHTML += `<option value="${nome}">${nome}</option>`;
-      });
-
-      // Manter seleção se ainda existir na lista filtrada
-      if (atAtual && atendentes.has(atAtual)) {
-        selAtendente.value = atAtual;
+      for (var j = 0; j < atendentes.length; j++) {
+        selAtendente.innerHTML += '<option value="' + atendentes[j] + '">' + atendentes[j] + '</option>';
       }
     }
 
