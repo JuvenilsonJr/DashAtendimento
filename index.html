@@ -490,6 +490,7 @@
         renderTabelaAtendentes(data, true);
       } else if (tableId === 'hoje') {
         let data = dadosCache.distribuidos_hoje || [];
+        if (filtroEquipe) data = data.filter(d => d.equipe === filtroEquipe);
         if (filtroAtendente) data = data.filter(d => d.atendente === filtroAtendente);
         data = sortData(data, key, tableId);
         renderTabelaHoje(data, true);
@@ -635,7 +636,10 @@
 
       renderTabelaAtendentes(atendentesFiltrados);
 
-      let hojeFiltrados = dados.distribuidos_hoje;
+      let hojeFiltrados = dados.distribuidos_hoje || [];
+      if (filtroEquipe) {
+        hojeFiltrados = hojeFiltrados.filter(d => d.equipe === filtroEquipe);
+      }
       if (filtroAtendente) {
         hojeFiltrados = hojeFiltrados.filter(d => d.atendente === filtroAtendente);
       }
@@ -692,6 +696,7 @@
         <thead>
           <tr>
             ${thSortable('Atendente', 'atendente', 'hoje')}
+            ${thSortable('Equipe', 'equipe', 'hoje')}
             ${thSortable('Chamados Novos Hoje', 'chamados_novos', 'hoje')}
             ${thSortable('Data', 'data', 'hoje')}
           </tr>
@@ -701,6 +706,7 @@
       distribuidos.forEach(d => {
         html += `<tr>
           <td class="font-bold">${d.atendente}</td>
+          <td>${d.equipe}</td>
           <td class="text-center"><span class="badge badge-primary">${d.chamados_novos}</span></td>
           <td class="text-center">${d.data}</td>
         </tr>`;
