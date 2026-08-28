@@ -55,6 +55,110 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    /* Abas principais */
+    .main-tabs {
+      display: flex;
+      background: var(--card-bg);
+      border-bottom: 2px solid var(--border);
+      padding: 0 2rem;
+    }
+
+    .main-tab {
+      padding: 0.8rem 1.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      border-bottom: 3px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .main-tab:hover { color: var(--text); }
+    .main-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Sub-abas (para listagem metas) */
+    .sub-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 0 1rem;
+      background: var(--th-bg);
+    }
+
+    .sub-tab {
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .sub-tab:hover { color: var(--text); }
+    .sub-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* Multi-select */
+    .filter-group select[multiple] {
+      min-height: 80px;
+      min-width: 140px;
+    }
+
+    /* Gráficos */
+    .charts-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .chart-card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 1.2rem;
+      text-align: center;
+    }
+
+    .chart-card h3 {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .chart-container {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: 0 auto;
+    }
+
+    .chart-legend {
+      margin-top: 0.8rem;
+      font-size: 0.8rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.8rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: var(--bg);
@@ -333,6 +437,14 @@
     </div>
   </header>
 
+  <!-- Abas principais -->
+  <div class="main-tabs">
+    <div class="main-tab active" onclick="switchMainTab('atendimento')">Atendimento</div>
+    <div class="main-tab" onclick="switchMainTab('metas')">Metas</div>
+  </div>
+
+  <!-- Aba Atendimento -->
+  <div class="tab-content active" id="tab-atendimento">
   <div class="container">
     <!-- Filtros -->
     <div class="filters">
@@ -403,7 +515,90 @@
       </div>
     </div>
   </div>
+  </div><!-- Fim tab-atendimento -->
 
+  <!-- Aba Metas -->
+  <div class="tab-content" id="tab-metas">
+  <div class="container">
+    <!-- Filtros Metas -->
+    <div class="filters">
+      <div class="filter-group">
+        <label>Equipe</label>
+        <select id="metaFiltroEquipe">
+          <option value="">Todas as equipes</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Atendente</label>
+        <select id="metaFiltroAtendente">
+          <option value="">Todos os atendentes</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Ano</label>
+        <select id="metaFiltroAno" multiple>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Mes</label>
+        <select id="metaFiltroMes" multiple>
+          <option value="1">Janeiro</option>
+          <option value="2">Fevereiro</option>
+          <option value="3">Marco</option>
+          <option value="4">Abril</option>
+          <option value="5">Maio</option>
+          <option value="6">Junho</option>
+          <option value="7">Julho</option>
+          <option value="8">Agosto</option>
+          <option value="9">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+      </div>
+      <button class="btn-refresh" id="btnMetasRefresh" onclick="carregarMetas()">Atualizar</button>
+    </div>
+
+    <!-- Erro Metas -->
+    <div class="error" id="metasErrorBox" style="display:none"></div>
+
+    <!-- Graficos -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Pesquisa de Satisfacao</h3>
+        <div class="chart-container"><canvas id="chartSatisfacao"></canvas></div>
+        <div class="chart-legend" id="legendSatisfacao"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Primeiro Atendimento</h3>
+        <div class="chart-container"><canvas id="chartPrimAtend"></canvas></div>
+        <div class="chart-legend" id="legendPrimAtend"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Atendimento SLA</h3>
+        <div class="chart-container"><canvas id="chartSLA"></canvas></div>
+        <div class="chart-legend" id="legendSLA"></div>
+      </div>
+    </div>
+
+    <!-- Listagem com sub-abas -->
+    <div class="section">
+      <div class="sub-tabs">
+        <div class="sub-tab active" onclick="switchMetaSubTab('satisfacao')">Pesquisa de Satisfacao</div>
+        <div class="sub-tab" onclick="switchMetaSubTab('primAtend')">Primeiro Atendimento</div>
+        <div class="sub-tab" onclick="switchMetaSubTab('sla')">Atendimento SLA</div>
+      </div>
+      <div id="metasListagem">
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>Selecione os filtros e clique em Atualizar</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- Fim tab-metas -->
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script>
     // ─── Tema ─────────────────────────────────────────────────────────────────
     function applyTheme(theme) {
@@ -792,6 +987,238 @@
 
     // Carregar ao abrir
     carregarDados();
+
+    // ─── Abas principais ──────────────────────────────────────────────────────
+    function switchMainTab(tab) {
+      document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.main-tab[onclick*="${tab}"]`).classList.add('active');
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    // ─── Metas ────────────────────────────────────────────────────────────────
+    let metasCache = null;
+    let metaSubTabAtiva = 'satisfacao';
+    let chartInstances = {};
+
+    function switchMetaSubTab(tab) {
+      metaSubTabAtiva = tab;
+      document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.sub-tab[onclick*="${tab}"]`).classList.add('active');
+      if (metasCache) renderMetasListagem();
+    }
+
+    function getMetasFiltros() {
+      const equipe = document.getElementById('metaFiltroEquipe').value;
+      const atendente = document.getElementById('metaFiltroAtendente').value;
+      const anosSelect = document.getElementById('metaFiltroAno');
+      const mesesSelect = document.getElementById('metaFiltroMes');
+      const anos = [...anosSelect.selectedOptions].map(o => parseInt(o.value));
+      const meses = [...mesesSelect.selectedOptions].map(o => parseInt(o.value));
+      return { equipe, atendente, anos, meses };
+    }
+
+    function filtrarMetas(dados, filtros) {
+      let resultado = [...dados];
+      if (filtros.equipe) resultado = resultado.filter(d => d.equipe === filtros.equipe);
+      if (filtros.atendente) resultado = resultado.filter(d => d.atendente === filtros.atendente);
+      if (filtros.anos.length) resultado = resultado.filter(d => filtros.anos.includes(d.ano));
+      if (filtros.meses.length) resultado = resultado.filter(d => filtros.meses.includes(d.mes));
+      return resultado;
+    }
+
+    async function carregarMetas() {
+      const btn = document.getElementById('btnMetasRefresh');
+      const errorBox = document.getElementById('metasErrorBox');
+      btn.disabled = true;
+      btn.textContent = 'Carregando...';
+      errorBox.style.display = 'none';
+
+      try {
+        const resp = await fetch(`${API_URL}/api/metas`);
+        if (!resp.ok) throw new Error(`Erro HTTP ${resp.status}`);
+        metasCache = await resp.json();
+        if (metasCache.error) throw new Error(metasCache.error);
+
+        preencherFiltrosMetas();
+        renderMetas();
+      } catch (err) {
+        errorBox.textContent = `Erro: ${err.message}`;
+        errorBox.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Atualizar';
+      }
+    }
+
+    function preencherFiltrosMetas() {
+      const selEquipe = document.getElementById('metaFiltroEquipe');
+      const selAtendente = document.getElementById('metaFiltroAtendente');
+      const selAno = document.getElementById('metaFiltroAno');
+
+      // Equipes
+      const equipes = new Set();
+      metasCache.satisfacao.forEach(d => equipes.add(d.equipe));
+      metasCache.primeiro_atendimento.forEach(d => equipes.add(d.equipe));
+      metasCache.sla.forEach(d => equipes.add(d.equipe));
+
+      selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
+      [...equipes].sort().forEach(nome => {
+        selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
+      });
+
+      // Atendentes
+      const atendentes = new Set();
+      metasCache.satisfacao.forEach(d => atendentes.add(d.atendente));
+      metasCache.primeiro_atendimento.forEach(d => atendentes.add(d.atendente));
+      metasCache.sla.forEach(d => atendentes.add(d.atendente));
+
+      selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
+      [...atendentes].sort().forEach(nome => {
+        selAtendente.innerHTML += `<option value="${nome}">${nome}</option>`;
+      });
+
+      // Anos
+      const anos = new Set();
+      metasCache.satisfacao.forEach(d => anos.add(d.ano));
+      metasCache.primeiro_atendimento.forEach(d => anos.add(d.ano));
+      metasCache.sla.forEach(d => anos.add(d.ano));
+
+      selAno.innerHTML = '';
+      [...anos].sort((a,b) => b-a).forEach(ano => {
+        selAno.innerHTML += `<option value="${ano}">${ano}</option>`;
+      });
+    }
+
+    function renderMetas() {
+      const filtros = getMetasFiltros();
+
+      const satFiltrado = filtrarMetas(metasCache.satisfacao, filtros);
+      const primFiltrado = filtrarMetas(metasCache.primeiro_atendimento, filtros);
+      const slaFiltrado = filtrarMetas(metasCache.sla, filtros);
+
+      renderPieChart('chartSatisfacao', 'legendSatisfacao', satFiltrado, 'classificacao');
+      renderPieChart('chartPrimAtend', 'legendPrimAtend', primFiltrado, 'classificacao');
+      renderPieChart('chartSLA', 'legendSLA', slaFiltrado, 'classificacao');
+
+      renderMetasListagem();
+    }
+
+    function renderPieChart(canvasId, legendId, dados, field) {
+      // Contar por classificação
+      const contagem = {};
+      dados.forEach(d => {
+        const val = d[field] || 'Sem classificação';
+        contagem[val] = (contagem[val] || 0) + 1;
+      });
+
+      const labels = Object.keys(contagem);
+      const values = Object.values(contagem);
+      const total = values.reduce((s, v) => s + v, 0);
+      const cores = ['#4CAF50', '#F44336', '#FF9800', '#2196F3', '#9C27B0', '#00BCD4', '#795548'];
+
+      // Destruir chart anterior se existir
+      if (chartInstances[canvasId]) {
+        chartInstances[canvasId].destroy();
+      }
+
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      chartInstances[canvasId] = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: cores.slice(0, labels.length),
+            borderWidth: 1,
+            borderColor: 'var(--card-bg)',
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const pct = total ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                  return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Legend
+      const legendEl = document.getElementById(legendId);
+      legendEl.innerHTML = labels.map((l, i) => {
+        const pct = total ? ((values[i] / total) * 100).toFixed(1) : 0;
+        return `<span class="legend-item"><span class="legend-color" style="background:${cores[i]}"></span>${l}: ${pct}%</span>`;
+      }).join('');
+    }
+
+    function renderMetasListagem() {
+      const container = document.getElementById('metasListagem');
+      const filtros = getMetasFiltros();
+
+      let dados;
+      if (metaSubTabAtiva === 'satisfacao') {
+        dados = filtrarMetas(metasCache.satisfacao, filtros);
+      } else if (metaSubTabAtiva === 'primAtend') {
+        dados = filtrarMetas(metasCache.primeiro_atendimento, filtros);
+      } else {
+        dados = filtrarMetas(metasCache.sla, filtros);
+      }
+
+      if (!dados.length) {
+        container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>';
+        return;
+      }
+
+      let html = `<table><thead><tr>
+        <th>ID</th><th>Equipe</th><th>Atendente</th><th>Classificacao</th><th>Referencia</th><th>Status</th><th>Ano</th><th>Mes</th>
+      </tr></thead><tbody>`;
+
+      dados.forEach(d => {
+        html += `<tr>
+          <td>${d.id_chamada}</td>
+          <td>${d.equipe}</td>
+          <td>${d.atendente}</td>
+          <td><span class="badge badge-accent">${d.classificacao}</span></td>
+          <td>${d.referencia || ''}</td>
+          <td>${d.status || ''}</td>
+          <td>${d.ano}</td>
+          <td>${d.mes}</td>
+        </tr>`;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Eventos filtros metas
+    document.getElementById('metaFiltroEquipe').addEventListener('change', () => {
+      if (metasCache) {
+        // Atualizar lista de atendentes baseado na equipe selecionada
+        const equipe = document.getElementById('metaFiltroEquipe').value;
+        const selAtendente = document.getElementById('metaFiltroAtendente');
+        const atendentes = new Set();
+        const todasFontes = [...metasCache.satisfacao, ...metasCache.primeiro_atendimento, ...metasCache.sla];
+        todasFontes.forEach(d => {
+          if (!equipe || d.equipe === equipe) atendentes.add(d.atendente);
+        });
+        selAtendente.innerHTML = '<option value="">Todos os atendentes</option>';
+        [...atendentes].sort().forEach(nome => {
+          if (nome) selAtendente.innerHTML += `<option value="${nome}">${nome}</option>`;
+        });
+        renderMetas();
+      }
+    });
+    document.getElementById('metaFiltroAtendente').addEventListener('change', () => { if (metasCache) renderMetas(); });
+    document.getElementById('metaFiltroAno').addEventListener('change', () => { if (metasCache) renderMetas(); });
+    document.getElementById('metaFiltroMes').addEventListener('change', () => { if (metasCache) renderMetas(); });
   </script>
 </body>
 </html>
