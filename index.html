@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark">
 <head>
   <meta charset="UTF-8">
@@ -518,13 +518,13 @@
     <div class="filters">
       <div class="filter-group">
         <label>Equipe</label>
-        <select id="metaFiltroEquipe">
+        <select id="metaFiltroEquipe" onchange="if(metasCache){atualizarAtendentesMetasPorEquipe();renderMetas();}">
           <option value="">Todas as equipes</option>
         </select>
       </div>
       <div class="filter-group">
         <label>Atendente</label>
-        <select id="metaFiltroAtendente">
+        <select id="metaFiltroAtendente" onchange="if(metasCache){renderMetas();}">
           <option value="">Todos os atendentes</option>
         </select>
       </div>
@@ -1046,9 +1046,9 @@
 
         if (selEquipe.options.length <= 1) {
           const equipes = new Set();
-          metasCache.satisfacao.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
-          metasCache.primeiro_atendimento.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
-          metasCache.sla.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
+          metasCache.satisfacao.forEach(d => { if (d.equipe) equipes.add(d.equipe.trim()); });
+          metasCache.primeiro_atendimento.forEach(d => { if (d.equipe) equipes.add(d.equipe.trim()); });
+          metasCache.sla.forEach(d => { if (d.equipe) equipes.add(d.equipe.trim()); });
           selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
           [...equipes].sort().forEach(nome => {
             selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
@@ -1080,13 +1080,13 @@
 
     function atualizarAtendentesMetasPorEquipe() {
       const selAtendente = document.getElementById('metaFiltroAtendente');
-      const equipeSelecionada = document.getElementById('metaFiltroEquipe').value;
+      const equipeSelecionada = document.getElementById('metaFiltroEquipe').value.trim();
       const atAtual = selAtendente.value;
 
       const atendentes = new Set();
       const todasFontes = [...metasCache.satisfacao, ...metasCache.primeiro_atendimento, ...metasCache.sla];
       todasFontes.forEach(d => {
-        if (d.atendente && (!equipeSelecionada || d.equipe === equipeSelecionada)) {
+        if (d.atendente && (!equipeSelecionada || (d.equipe||'').trim() === equipeSelecionada)) {
           atendentes.add(d.atendente);
         }
       });
