@@ -1040,7 +1040,34 @@
         metasCache = await resp.json();
         if (metasCache.error) throw new Error(metasCache.error);
 
-        preencherFiltrosMetas();
+        // Popular equipes e anos (só na primeira carga)
+        const selEquipe = document.getElementById('metaFiltroEquipe');
+        const selAno = document.getElementById('metaFiltroAno');
+
+        if (selEquipe.options.length <= 1) {
+          const equipes = new Set();
+          metasCache.satisfacao.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
+          metasCache.primeiro_atendimento.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
+          metasCache.sla.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
+          selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
+          [...equipes].sort().forEach(nome => {
+            selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
+          });
+        }
+
+        if (selAno.options.length === 0) {
+          const anos = new Set();
+          metasCache.satisfacao.forEach(d => { if (d.ano) anos.add(d.ano); });
+          metasCache.primeiro_atendimento.forEach(d => { if (d.ano) anos.add(d.ano); });
+          metasCache.sla.forEach(d => { if (d.ano) anos.add(d.ano); });
+          const anoAtual = new Date().getFullYear();
+          [...anos].sort((a,b) => b-a).forEach(ano => {
+            const selected = ano === anoAtual ? ' selected' : '';
+            selAno.innerHTML += `<option value="${ano}"${selected}>${ano}</option>`;
+          });
+        }
+
+        atualizarAtendentesMetasPorEquipe();
         renderMetas();
       } catch (err) {
         errorBox.textContent = `Erro: ${err.message}`;
@@ -1049,43 +1076,6 @@
         btn.disabled = false;
         btn.textContent = 'Atualizar';
       }
-    }
-
-    function preencherFiltrosMetas() {
-      const selEquipe = document.getElementById('metaFiltroEquipe');
-      const selAtendente = document.getElementById('metaFiltroAtendente');
-      const selAno = document.getElementById('metaFiltroAno');
-
-      const eqAtual = selEquipe.value;
-      const atAtual = selAtendente.value;
-      const anoAtual = selAno.value || String(new Date().getFullYear());
-
-      // Equipes
-      const equipes = new Set();
-      metasCache.satisfacao.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
-      metasCache.primeiro_atendimento.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
-      metasCache.sla.forEach(d => { if (d.equipe) equipes.add(d.equipe); });
-
-      selEquipe.innerHTML = '<option value="">Todas as equipes</option>';
-      [...equipes].sort().forEach(nome => {
-        selEquipe.innerHTML += `<option value="${nome}">${nome}</option>`;
-      });
-      if (eqAtual) selEquipe.value = eqAtual;
-
-      // Atendentes - filtrado pela equipe selecionada
-      atualizarAtendentesMetasPorEquipe();
-
-      // Anos
-      const anos = new Set();
-      metasCache.satisfacao.forEach(d => { if (d.ano) anos.add(d.ano); });
-      metasCache.primeiro_atendimento.forEach(d => { if (d.ano) anos.add(d.ano); });
-      metasCache.sla.forEach(d => { if (d.ano) anos.add(d.ano); });
-
-      selAno.innerHTML = '';
-      [...anos].sort((a,b) => b-a).forEach(ano => {
-        const selected = String(ano) === anoAtual ? ' selected' : '';
-        selAno.innerHTML += `<option value="${ano}"${selected}>${ano}</option>`;
-      });
     }
 
     function atualizarAtendentesMetasPorEquipe() {
