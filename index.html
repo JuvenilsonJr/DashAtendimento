@@ -476,36 +476,21 @@
       </div>
     </div>
 
-    <!-- Tabela de Atendentes -->
+    <!-- Listagens com sub-abas -->
     <div class="section">
-      <div class="section-header">Chamados por Atendente</div>
+      <div class="sub-tabs">
+        <div class="sub-tab active" onclick="switchAtendTab('atendentes')">Chamados por Atendente</div>
+        <div class="sub-tab" onclick="switchAtendTab('diasSemMov')">Top 10 — Sem Movimentacao</div>
+        <div class="sub-tab" onclick="switchAtendTab('prioridades')">Prioridades</div>
+      </div>
       <div id="tabelaAtendentes">
-        <div class="loading">
-          <div class="spinner"></div>
-          <p>Carregando dados...</p>
-        </div>
+        <div class="loading"><div class="spinner"></div><p>Carregando dados...</p></div>
       </div>
-    </div>
-
-    <!-- Top 10 Chamados com mais dias sem movimentação -->
-    <div class="section">
-      <div class="section-header" style="background: linear-gradient(135deg, #7a1a1a, #a32929);">Top 10 — Chamados com Mais Tempo sem Movimentacao</div>
-      <div id="tabelaDiasSemMov">
-        <div class="loading">
-          <div class="spinner"></div>
-          <p>Carregando dados...</p>
-        </div>
+      <div id="tabelaDiasSemMov" style="display:none">
+        <div class="loading"><div class="spinner"></div><p>Carregando dados...</p></div>
       </div>
-    </div>
-
-    <!-- Lista de Prioridades -->
-    <div class="section">
-      <div class="section-header" style="background: linear-gradient(135deg, #7a1a1a, #c62828);">Chamados com Prioridade</div>
-      <div id="tabelaPrioridades">
-        <div class="loading">
-          <div class="spinner"></div>
-          <p>Carregando dados...</p>
-        </div>
+      <div id="tabelaPrioridades" style="display:none">
+        <div class="loading"><div class="spinner"></div><p>Carregando dados...</p></div>
       </div>
     </div>
   </div>
@@ -686,6 +671,16 @@
         if (filtroAtendente) data = data.filter(p => p.atendente === filtroAtendente);
         data = sortData(data, key, tableId);
         renderTabelaPrioridades(data, true);
+      } else if (tableId === 'metasLista') {
+        if (metasCache) {
+          const filtros = getMetasFiltros();
+          let data;
+          if (metaSubTabAtiva === 'satisfacao') data = filtrarMetas(metasCache.satisfacao || [], filtros);
+          else if (metaSubTabAtiva === 'primAtend') data = filtrarMetas(metasCache.primeiro_atendimento || [], filtros);
+          else data = filtrarMetas(metasCache.sla || [], filtros);
+          data = sortData(data, key, tableId);
+          renderMetasListagemSorted(data);
+        }
       }
     }
     // ─── Fim Ordenação ────────────────────────────────────────────────────────
@@ -984,6 +979,16 @@
     // Carregar ao abrir
     carregarDados();
 
+
+    // ─── Sub-abas Atendimento ─────────────────────────────────────────────────
+    function switchAtendTab(tab) {
+      document.querySelectorAll('#tab-atendimento .sub-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('#tab-atendimento .sub-tab[onclick*="' + tab + '"]').classList.add('active');
+      document.getElementById('tabelaAtendentes').style.display = (tab === 'atendentes') ? '' : 'none';
+      document.getElementById('tabelaDiasSemMov').style.display = (tab === 'diasSemMov') ? '' : 'none';
+      document.getElementById('tabelaPrioridades').style.display = (tab === 'prioridades') ? '' : 'none';
+    }
+
     // ─── Abas principais ──────────────────────────────────────────────────────
     function switchMainTab(tab) {
       document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
@@ -1099,7 +1104,7 @@
         htmlAt += '<option value="' + atendentesOrdenados[k] + '"' + s + '>' + atendentesOrdenados[k] + '</option>';
       }
       selAtendente.innerHTML = htmlAt;
-      selAtendente.title = 'Encontrados: ' + atendentesOrdenados.length + ' equipe=[' + equipeSel + ']';
+
 
       // PASSO 2: Filtrar dados e renderizar gráficos
       const filtros = getMetasFiltros();
@@ -1159,7 +1164,19 @@
 
       if (!dados.length) { container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>'; return; }
 
-      let html = '<table><thead><tr><th>Equipe</th><th>Atendente</th><th>Classificacao</th><th>Qtde</th><th>Ano</th><th>Mes</th></tr></thead><tbody>';
+      let html = '<table><thead><tr>' + thSortable('Equipe','equipe','metasLista') + thSortable('Atendente','atendente','metasLista') + thSortable('Classificacao','classificacao','metasLista') + thSortable('Qtde','qtde','metasLista') + thSortable('Ano','ano','metasLista') + thSortable('Mes','mes','metasLista') + '</tr></thead><tbody>';
+      dados.forEach(d => {
+        html += '<tr><td>' + d.equipe + '</td><td>' + d.atendente + '</td><td><span class="badge badge-accent">' + d.classificacao + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+
+    function renderMetasListagemSorted(dados) {
+      const container = document.getElementById('metasListagem');
+      if (!dados.length) { container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>'; return; }
+      let html = '<table><thead><tr>' + thSortable('Equipe','equipe','metasLista') + thSortable('Atendente','atendente','metasLista') + thSortable('Classificacao','classificacao','metasLista') + thSortable('Qtde','qtde','metasLista') + thSortable('Ano','ano','metasLista') + thSortable('Mes','mes','metasLista') + '</tr></thead><tbody>';
       dados.forEach(d => {
         html += '<tr><td>' + d.equipe + '</td><td>' + d.atendente + '</td><td><span class="badge badge-accent">' + d.classificacao + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
       });
