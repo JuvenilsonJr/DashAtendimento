@@ -1087,8 +1087,9 @@
       var atendentesSet = {};
       for (var i = 0; i < todosRegistros.length; i++) {
         var reg = todosRegistros[i];
-        if (reg.atendente && (!equipeSel || reg.equipe === equipeSel)) {
-          atendentesSet[reg.atendente] = true;
+        var nomeAt = (reg.atendente || '').trim();
+        if (nomeAt && (!equipeSel || reg.equipe === equipeSel)) {
+          atendentesSet[nomeAt] = true;
         }
       }
       var atendentesOrdenados = Object.keys(atendentesSet).sort();
@@ -1098,6 +1099,7 @@
         htmlAt += '<option value="' + atendentesOrdenados[k] + '"' + s + '>' + atendentesOrdenados[k] + '</option>';
       }
       selAtendente.innerHTML = htmlAt;
+      selAtendente.title = 'Encontrados: ' + atendentesOrdenados.length + ' equipe=[' + equipeSel + ']';
 
       // PASSO 2: Filtrar dados e renderizar gráficos
       const filtros = getMetasFiltros();
