@@ -518,13 +518,13 @@
     <div class="filters">
       <div class="filter-group">
         <label>Equipe</label>
-        <select id="metaFiltroEquipe" onchange="if(metasCache){atualizarAtendentesMetasPorEquipe();setTimeout(renderMetas,100);}">
+        <select id="metaFiltroEquipe" onchange="metasEquipeChanged()">
           <option value="">Todas as equipes</option>
         </select>
       </div>
       <div class="filter-group">
         <label>Atendente</label>
-        <select id="metaFiltroAtendente" onchange="if(metasCache){renderMetas();}">
+        <select id="metaFiltroAtendente" onchange="if(metasCache)renderMetas()">
           <option value="">Todos os atendentes</option>
         </select>
       </div>
@@ -1079,6 +1079,12 @@
       }
     }
 
+
+    function metasEquipeChanged() {
+      if (!metasCache) return;
+      atualizarAtendentesMetasPorEquipe();
+      renderMetas();
+    }
     function atualizarAtendentesMetasPorEquipe() {
       var selAtendente = document.getElementById('metaFiltroAtendente');
       var selEquipe = document.getElementById('metaFiltroEquipe');
@@ -1216,14 +1222,7 @@
       container.innerHTML = html;
     }
 
-    // Eventos filtros metas
-    document.getElementById('metaFiltroEquipe').addEventListener('change', () => {
-      if (metasCache) {
-        atualizarAtendentesMetasPorEquipe();
-        renderMetas();
-      }
-    });
-    document.getElementById('metaFiltroAtendente').addEventListener('change', () => { if (metasCache) renderMetas(); });
+    // Eventos filtros metas (via onchange inline no HTML)
     document.getElementById('metaFiltroAno').addEventListener('change', () => { if (metasCache) renderMetas(); });
     document.getElementById('metaFiltroMes').addEventListener('change', () => { if (metasCache) renderMetas(); });
   </script>
