@@ -1011,7 +1011,9 @@
       metaSubTabAtiva = tab;
       document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
       document.querySelector('.sub-tab[onclick*="' + tab + '"]').classList.add('active');
-      if (metasCache) renderMetasListagem();
+      // renderMetas repopula o dropdown de atendente com os nomes desta sub-aba
+      // e re-renderiza graficos e listagem de forma consistente.
+      if (metasCache) renderMetas();
     }
 
     // Os nomes de equipe/atendente vem do banco com espacos extras (ex: "Diego Leal Silva      ").
@@ -1103,10 +1105,20 @@
       }
     }
 
+    // Retorna os registros da sub-aba de metas atualmente ativa.
+    // O dropdown de atendente reflete apenas o dataset exibido (SLA, satisfacao
+    // ou primeiro atendimento), porque cada um tem um conjunto proprio de
+    // atendentes; misturar os tres faz o filtro parecer que nao funciona.
+    function registrosDaSubAba() {
+      if (metaSubTabAtiva === 'satisfacao') return metasCache.satisfacao || [];
+      if (metaSubTabAtiva === 'primAtend') return metasCache.primeiro_atendimento || [];
+      return metasCache.sla || [];
+    }
+
     function renderMetas() {
       // PASSO 1: o dropdown de atendentes lista apenas quem tem registro no recorte atual
-      // (equipe + ano + mes). Os dados de metas sao historicos e associam um mesmo atendente
-      // a varias equipes, entao filtrar so por equipe deixa a lista quase inteira.
+      // (sub-aba ativa + equipe + ano + mes). Os dados de metas sao historicos e associam
+      // um mesmo atendente a varias equipes, entao filtrar so por equipe deixa a lista quase inteira.
       const selAtendente = document.getElementById('metaFiltroAtendente');
       const equipeSel = normalizarTexto(document.getElementById('metaFiltroEquipe').value);
       const anoSel = document.getElementById('metaFiltroAno').value;
@@ -1115,12 +1127,8 @@
       const mesNum = mesSel ? parseInt(mesSel) : null;
       const atAnterior = normalizarTexto(selAtendente.value);
 
-      const todosRegistros = (metasCache.satisfacao || [])
-        .concat(metasCache.primeiro_atendimento || [])
-        .concat(metasCache.sla || []);
-
       const atendentesSet = new Set();
-      todosRegistros.forEach(reg => {
+      registrosDaSubAba().forEach(reg => {
         const nomeAt = normalizarTexto(reg.atendente);
         if (!nomeAt) return;
         if (equipeSel && normalizarTexto(reg.equipe) !== equipeSel) return;
@@ -1130,12 +1138,16 @@
       });
 
       const atendentesOrdenados = [...atendentesSet].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      // Se o atendente antes selecionado nao existe nesta sub-aba, volta para "Todos"
+      // para nao deixar um filtro fantasma que zera os graficos.
+      const manterSelecao = atAnterior && atendentesSet.has(atAnterior);
       let htmlAt = '<option value="">Todos os atendentes</option>';
       atendentesOrdenados.forEach(nome => {
-        const marcado = (nome === atAnterior) ? ' selected' : '';
+        const marcado = (manterSelecao && nome === atAnterior) ? ' selected' : '';
         htmlAt += '<option value="' + escaparHtml(nome) + '"' + marcado + '>' + escaparHtml(nome) + '</option>';
       });
       selAtendente.innerHTML = htmlAt;
+      if (!manterSelecao) selAtendente.value = '';
 
 
       // PASSO 2: Filtrar dados e renderizar gráficos
