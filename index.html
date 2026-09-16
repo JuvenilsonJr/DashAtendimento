@@ -1181,33 +1181,22 @@
 
       if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
 
-      // Plugin para desenhar as linhas de conexao (leader lines) entre a fatia e o rotulo externo
-      const leaderLinesPlugin = {
-        id: 'leaderLines',
-        afterDraw: function(chart) {
-          const c = chart.ctx;
-          const meta = chart.getDatasetMeta(0);
-          const cx = (chart.chartArea.left + chart.chartArea.right) / 2;
-          const cy = (chart.chartArea.top + chart.chartArea.bottom) / 2;
-          meta.data.forEach(function(arc, i) {
-            const ang = (arc.startAngle + arc.endAngle) / 2;
-            const rInner = arc.outerRadius;
-            const rOuter = arc.outerRadius + 14;
-            const x1 = cx + Math.cos(ang) * rInner;
-            const y1 = cy + Math.sin(ang) * rInner;
-            const x2 = cx + Math.cos(ang) * rOuter;
-            const y2 = cy + Math.sin(ang) * rOuter;
-            c.save();
-            c.strokeStyle = chart.data.datasets[0].backgroundColor[i];
-            c.lineWidth = 1.5;
-            c.beginPath();
-            c.moveTo(x1, y1);
-            c.lineTo(x2, y2);
-            c.stroke();
-            c.restore();
-          });
-        }
-      };
+      // Quebra o rotulo em varias linhas (para caber dentro da fatia sem truncar o nome)
+      function quebrarRotulo(texto, maxPorLinha) {
+        const palavras = String(texto).split(' ');
+        const linhas = [];
+        let atual = '';
+        palavras.forEach(function(p) {
+          if ((atual + ' ' + p).trim().length > maxPorLinha && atual) {
+            linhas.push(atual.trim());
+            atual = p;
+          } else {
+            atual = (atual + ' ' + p).trim();
+          }
+        });
+        if (atual) linhas.push(atual.trim());
+        return linhas;
+      }
 
       const ctx = document.getElementById(canvasId).getContext('2d');
       chartInstances[canvasId] = new Chart(ctx, {
@@ -1217,30 +1206,26 @@
           responsive: true,
           maintainAspectRatio: false,
           cutout: '55%',
-          layout: { padding: { top: 28, bottom: 28, left: 60, right: 60 } },
+          layout: { padding: 8 },
           plugins: {
             legend: { display: false },
             tooltip: { callbacks: { label: function(c) { return c.label + ': ' + c.raw + ' (' + (total ? ((c.raw/total)*100).toFixed(1) : 0) + '%)'; } } },
             datalabels: {
               color: '#ffffff',
-              backgroundColor: function(c) { return c.dataset.backgroundColor[c.dataIndex]; },
-              borderRadius: 4,
-              padding: { top: 5, bottom: 5, left: 8, right: 8 },
-              font: { size: 12, weight: '500' },
-              textAlign: 'left',
-              anchor: 'end',
-              align: 'end',
-              offset: 16,
+              font: { size: 11, weight: '500' },
+              textAlign: 'center',
+              anchor: 'center',
+              align: 'center',
               clamp: true,
               formatter: function(value, c) {
-                let l = c.chart.data.labels[c.dataIndex];
-                if (l.length > 18) l = l.slice(0, 18) + '...';
-                return l;
+                const l = c.chart.data.labels[c.dataIndex];
+                const pct = total ? ((value / total) * 100).toFixed(0) : 0;
+                return quebrarRotulo(l, 14).concat(pct + '%');
               }
             }
           }
         },
-        plugins: [ChartDataLabels, leaderLinesPlugin]
+        plugins: [ChartDataLabels]
       });
 
       document.getElementById(legendId).innerHTML = labels.map((l, i) => {
