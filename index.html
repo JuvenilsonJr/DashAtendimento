@@ -691,6 +691,34 @@
       ? 'http://localhost:5000'
       : WORKER_URL;
 
+    // Busca com timeout e novas tentativas automaticas.
+    // O backend faz login + varias queries no portal e pode levar dezenas de
+    // segundos em horario de pico; sem timeout proprio o navegador aborta e
+    // mostra "Failed to fetch". Aqui damos ate 90s por tentativa e repetimos.
+    async function fetchComRetry(url, { tentativas = 3, timeoutMs = 90000, onRetry } = {}) {
+      let ultimoErro;
+      for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const resp = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+          clearTimeout(timer);
+          return resp;
+        } catch (err) {
+          clearTimeout(timer);
+          ultimoErro = err.name === 'AbortError'
+            ? new Error('Tempo limite excedido (servidor demorou para responder)')
+            : err;
+          if (tentativa < tentativas) {
+            if (onRetry) onRetry(tentativa, tentativas);
+            // Espera progressiva antes de tentar de novo (2s, 4s...).
+            await new Promise(r => setTimeout(r, 2000 * tentativa));
+          }
+        }
+      }
+      throw ultimoErro;
+    }
+
     let dadosCache = null;
 
     async function carregarDados() {
@@ -704,7 +732,9 @@
       errorBox.style.display = 'none';
 
       try {
-        const resp = await fetch(`${API_URL}/api/dashboard`);
+        const resp = await fetchComRetry(`${API_URL}/api/dashboard`, {
+          onRetry: (t, total) => { statusText.textContent = `Tentando novamente (${t + 1}/${total})...`; },
+        });
         if (!resp.ok) throw new Error(`Erro HTTP ${resp.status}`);
         dadosCache = await resp.json();
 
@@ -1060,7 +1090,9 @@
       errorBox.style.display = 'none';
 
       try {
-        const resp = await fetch(API_URL + '/api/metas');
+        const resp = await fetchComRetry(API_URL + '/api/metas', {
+          onRetry: (t, total) => { btn.textContent = `Tentando (${t + 1}/${total})...`; },
+        });
         if (!resp.ok) throw new Error('Erro HTTP ' + resp.status);
         metasCache = await resp.json();
         if (metasCache.error) throw new Error(metasCache.error);
