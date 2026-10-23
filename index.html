@@ -436,6 +436,7 @@
   <div class="main-tabs">
     <div class="main-tab active" onclick="switchMainTab('atendimento')">Atendimento</div>
     <div class="main-tab" onclick="switchMainTab('metas')">Metas</div>
+    <div class="main-tab" onclick="switchMainTab('pt')">Pendencia Tecnica</div>
   </div>
 
   <!-- Aba Atendimento -->
@@ -579,6 +580,48 @@
   </div>
   </div><!-- Fim tab-metas -->
 
+  <!-- Aba Pendencia Tecnica -->
+  <div class="tab-content" id="tab-pt">
+  <div class="container">
+    <!-- Filtro Equipe -->
+    <div class="filters">
+      <div class="filter-group">
+        <label>Equipe que gerou a PT</label>
+        <select id="ptFiltroEquipe">
+          <option value="">Selecione uma equipe</option>
+        </select>
+      </div>
+      <button class="btn-refresh" id="btnPtRefresh" onclick="carregarPT()">Atualizar</button>
+    </div>
+
+    <!-- Erro PT -->
+    <div class="error" id="ptErrorBox" style="display:none"></div>
+
+    <!-- Grafico -->
+    <div class="charts-row" id="ptChartRow" style="display:none">
+      <div class="chart-card">
+        <h3>Pendencias Tecnicas por Situacao</h3>
+        <div class="chart-container"><canvas id="chartPT"></canvas></div>
+        <div class="chart-legend" id="legendPT"></div>
+      </div>
+    </div>
+
+    <!-- Listagem com sub-abas -->
+    <div class="section">
+      <div class="sub-tabs">
+        <div class="sub-tab active" onclick="switchPtSubTab('em_aberto')">Em Aberto</div>
+        <div class="sub-tab" onclick="switchPtSubTab('pendente_cliente')">Pendente com o Cliente</div>
+        <div class="sub-tab" onclick="switchPtSubTab('finalizado')">Finalizado</div>
+      </div>
+      <div id="ptListagem">
+        <div class="loading">
+          <p>Selecione uma equipe para carregar as pendencias tecnicas</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div><!-- Fim tab-pt -->
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script>
@@ -682,6 +725,13 @@
           else data = filtrarMetas(metasCache.sla || [], filtros);
           data = sortData(data, key, tableId);
           renderMetasListagemSorted(data);
+        }
+      } else if (tableId === 'ptLista') {
+        if (ptCache) {
+          const grupos = getPtPorCategoria();
+          let data = grupos[ptSubTabAtiva] || [];
+          data = sortData(data, key, tableId);
+          renderPtListagemSorted(data);
         }
       }
     }
@@ -1032,6 +1082,12 @@
       if (tab === 'metas' && !metasCache) {
         carregarMetas();
       }
+
+      // Ao abrir Pendencia Tecnica, apenas garante que o filtro de equipes
+      // esteja populado. O conteudo so carrega quando a equipe for selecionada.
+      if (tab === 'pt') {
+        preencherFiltroEquipesPT();
+      }
     }
 
     // ─── Metas ────────────────────────────────────────────────────────────────
@@ -1302,6 +1358,217 @@
     document.getElementById('metaFiltroAtendente').onchange = function() { if (metasCache) renderMetas(); };
     document.getElementById('metaFiltroAno').onchange = function() { if (metasCache) renderMetas(); };
     document.getElementById('metaFiltroMes').onchange = function() { if (metasCache) renderMetas(); };
+
+    // ─── Pendencia Tecnica ──────────────────────────────────────────────────
+    let ptCache = null;          // chamados da equipe atualmente carregada
+    let ptEquipeCarregada = '';  // equipe a que o ptCache se refere
+    let ptFiltroPronto = false;  // se a lista de equipes ja foi carregada
+    let ptSubTabAtiva = 'em_aberto';
+
+    const PT_LABELS = {
+      em_aberto: 'Em Aberto',
+      pendente_cliente: 'Pendente com o Cliente',
+      finalizado: 'Finalizado',
+    };
+
+    // Preenche o <select> de equipes com a lista vinda do endpoint (mesmo
+    // conjunto da aba de atendimento). O filtro inicia sem equipe marcada.
+    function popularSelectEquipesPT(equipes) {
+      const sel = document.getElementById('ptFiltroEquipe');
+      const atual = sel.value;
+      let html = '<option value="">Selecione uma equipe</option>';
+      (equipes || []).slice().sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(nome => {
+        html += '<option value="' + escaparHtml(nome) + '">' + escaparHtml(nome) + '</option>';
+      });
+      sel.innerHTML = html;
+      if (atual) sel.value = atual;
+    }
+
+    // Carrega apenas a lista de equipes (sem equipe no parametro). Chamado ao
+    // abrir a aba pela primeira vez.
+    async function preencherFiltroEquipesPT() {
+      if (ptFiltroPronto) return;
+      try {
+        const resp = await fetchComRetry(API_URL + '/api/pendencia-tecnica');
+        if (!resp.ok) throw new Error('Erro HTTP ' + resp.status);
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        popularSelectEquipesPT(data.equipes || []);
+        ptFiltroPronto = true;
+      } catch (err) {
+        const errorBox = document.getElementById('ptErrorBox');
+        errorBox.textContent = 'Erro ao carregar equipes: ' + err.message;
+        errorBox.style.display = 'block';
+      }
+    }
+
+    function switchPtSubTab(tab) {
+      ptSubTabAtiva = tab;
+      document.querySelectorAll('#tab-pt .sub-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('#tab-pt .sub-tab[onclick*="' + tab + '"]').classList.add('active');
+      renderPtListagem();
+    }
+
+    async function carregarPT() {
+      const equipe = normalizarTexto(document.getElementById('ptFiltroEquipe').value);
+      const btn = document.getElementById('btnPtRefresh');
+      const errorBox = document.getElementById('ptErrorBox');
+      const listagem = document.getElementById('ptListagem');
+      const chartRow = document.getElementById('ptChartRow');
+
+      errorBox.style.display = 'none';
+
+      // So carrega conteudo quando uma equipe esta selecionada.
+      if (!equipe) {
+        ptCache = null;
+        ptEquipeCarregada = '';
+        chartRow.style.display = 'none';
+        listagem.innerHTML = '<div class="loading"><p>Selecione uma equipe para carregar as pendencias tecnicas</p></div>';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Carregando...';
+      listagem.innerHTML = '<div class="loading"><div class="spinner"></div><p>Carregando pendencias tecnicas...</p></div>';
+
+      try {
+        const url = API_URL + '/api/pendencia-tecnica?equipe=' + encodeURIComponent(equipe);
+        const resp = await fetchComRetry(url, {
+          onRetry: (t, total) => { btn.textContent = 'Tentando (' + (t + 1) + '/' + total + ')...'; },
+        });
+        if (!resp.ok) throw new Error('Erro HTTP ' + resp.status);
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+
+        ptCache = data.chamados || [];
+        ptEquipeCarregada = equipe;
+        // Garante que o filtro reflita a lista de equipes mais recente
+        if (data.equipes && data.equipes.length) popularSelectEquipesPT(data.equipes);
+        document.getElementById('ptFiltroEquipe').value = equipe;
+
+        chartRow.style.display = '';
+        renderPT();
+      } catch (err) {
+        ptCache = null;
+        ptEquipeCarregada = '';
+        chartRow.style.display = 'none';
+        errorBox.textContent = 'Erro: ' + err.message;
+        errorBox.style.display = 'block';
+        listagem.innerHTML = '<div class="loading"><p>Nao foi possivel carregar os dados</p></div>';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Atualizar';
+      }
+    }
+
+    // Separa os chamados ja carregados (da equipe selecionada) por categoria.
+    function getPtPorCategoria() {
+      const grupos = { em_aberto: [], pendente_cliente: [], finalizado: [] };
+      if (!ptCache) return grupos;
+      ptCache.forEach(c => {
+        if (grupos[c.categoria]) grupos[c.categoria].push(c);
+      });
+      return grupos;
+    }
+
+    function renderPT() {
+      renderPtGrafico();
+      renderPtListagem();
+    }
+
+    function renderPtGrafico() {
+      const grupos = getPtPorCategoria();
+      const labels = [PT_LABELS.em_aberto, PT_LABELS.pendente_cliente, PT_LABELS.finalizado];
+      const values = [grupos.em_aberto.length, grupos.pendente_cliente.length, grupos.finalizado.length];
+      const cores = ['#c9a15a', '#6a7fa0', '#5a9578'];
+      const total = values.reduce((s, v) => s + v, 0);
+
+      if (chartInstances['chartPT']) chartInstances['chartPT'].destroy();
+
+      const ctx = document.getElementById('chartPT').getContext('2d');
+      chartInstances['chartPT'] = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values, backgroundColor: cores, borderWidth: 0 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '55%',
+          layout: { padding: 8 },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: function(c) { return c.label + ': ' + c.raw + ' (' + (total ? ((c.raw/total)*100).toFixed(1) : 0) + '%)'; } } },
+            datalabels: {
+              color: '#ffffff',
+              font: { size: 11, weight: '500' },
+              textAlign: 'center',
+              anchor: 'center',
+              align: 'center',
+              clamp: true,
+              formatter: function(value) { return value; }
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+
+      document.getElementById('legendPT').innerHTML = labels.map((l, i) =>
+        '<span class="legend-item"><span class="legend-color" style="background:' + cores[i] + '"></span>' + l + ': ' + values[i] + '</span>'
+      ).join('');
+    }
+
+    function renderPtListagem() {
+      const container = document.getElementById('ptListagem');
+
+      if (!ptCache || !ptEquipeCarregada) {
+        container.innerHTML = '<div class="loading"><p>Selecione uma equipe para carregar as pendencias tecnicas</p></div>';
+        return;
+      }
+
+      const grupos = getPtPorCategoria();
+      const dados = grupos[ptSubTabAtiva] || [];
+
+      if (!dados.length) {
+        container.innerHTML = '<div class="loading"><p>Nenhum chamado em "' + PT_LABELS[ptSubTabAtiva] + '" para esta equipe</p></div>';
+        return;
+      }
+
+      let html = '<table><thead><tr>'
+        + thSortable('ID', 'id_chamada', 'ptLista')
+        + thSortable('Referencia', 'referencia', 'ptLista')
+        + thSortable('Cliente', 'cliente', 'ptLista')
+        + thSortable('Status', 'status', 'ptLista')
+        + '</tr></thead><tbody>';
+      dados.forEach(d => {
+        html += '<tr><td>' + (d.id_chamada || '') + '</td><td>' + escaparHtml(d.referencia) + '</td><td>' + escaparHtml(d.cliente) + '</td><td>' + escaparHtml(d.status) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function renderPtListagemSorted(dados) {
+      const container = document.getElementById('ptListagem');
+      if (!dados.length) {
+        container.innerHTML = '<div class="loading"><p>Nenhum chamado encontrado</p></div>';
+        return;
+      }
+      let html = '<table><thead><tr>'
+        + thSortable('ID', 'id_chamada', 'ptLista')
+        + thSortable('Referencia', 'referencia', 'ptLista')
+        + thSortable('Cliente', 'cliente', 'ptLista')
+        + thSortable('Status', 'status', 'ptLista')
+        + '</tr></thead><tbody>';
+      dados.forEach(d => {
+        html += '<tr><td>' + (d.id_chamada || '') + '</td><td>' + escaparHtml(d.referencia) + '</td><td>' + escaparHtml(d.cliente) + '</td><td>' + escaparHtml(d.status) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Eventos filtro PT: cada troca de equipe busca os dados daquela equipe no
+    // servidor (o conteudo so carrega apos a selecao).
+    document.getElementById('ptFiltroEquipe').onchange = function() {
+      carregarPT();
+    };
 
   </script>
 </body>
