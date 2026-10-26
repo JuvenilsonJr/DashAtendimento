@@ -268,6 +268,33 @@
     .btn-refresh:hover { background: var(--primary-light); }
     .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* Barra de acoes acima das tabelas (ex.: exportar) */
+    .list-actions {
+      display: flex;
+      justify-content: flex-end;
+      padding: 0.6rem 1rem;
+      background: var(--th-bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .btn-export {
+      padding: 0.45rem 0.9rem;
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-export:hover { background: var(--primary); color: #fff; }
+    .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
+
     /* Cards de Resumo */
     .summary-cards {
       display: grid;
@@ -926,7 +953,8 @@
         });
       }
 
-      let html = `<table>
+      let html = barraExport('exportarAtendentes');
+      html += `<table>
         <thead>
           <tr>
             ${thSortable('Atendente', 'nome', 'atendentes')}
@@ -977,7 +1005,8 @@
         return;
       }
 
-      let html = `<table>
+      let html = barraExport('exportarDiasSemMov');
+      html += `<table>
         <thead>
           <tr>
             ${thSortable('ID', 'id_chamada', 'diasSemMov')}
@@ -1016,7 +1045,8 @@
         return;
       }
 
-      let html = `<table>
+      let html = barraExport('exportarPrioridades');
+      html += `<table>
         <thead>
           <tr>
             ${thSortable('Prioridade', 'prioridade', 'prioridades')}
@@ -1042,6 +1072,76 @@
 
       html += '</tbody></table>';
       container.innerHTML = html;
+    }
+
+    // ─── Exportacoes da aba Atendimento ────────────────────────────────────────
+    // Cada funcao reconstroi a lista exatamente como exibida (filtros ativos).
+    function exportarAtendentes() {
+      if (!dadosCache) return;
+      const filtroEquipe = document.getElementById('filtroEquipe').value;
+      const filtroAtendente = document.getElementById('filtroAtendente').value;
+
+      let data = dadosCache.atendentes || [];
+      if (filtroEquipe) data = data.filter(a => a.equipe === filtroEquipe);
+      if (filtroAtendente) data = data.filter(a => a.nome === filtroAtendente);
+
+      let hojeDados = dadosCache.distribuidos_hoje || [];
+      if (filtroEquipe) hojeDados = hojeDados.filter(d => d.equipe === filtroEquipe);
+      if (filtroAtendente) hojeDados = hojeDados.filter(d => d.atendente === filtroAtendente);
+      const hojeMap = {};
+      hojeDados.forEach(d => { const k = `${d.equipe}|${d.atendente}`; hojeMap[k] = (hojeMap[k] || 0) + d.chamados_novos; });
+
+      const linhas = data.map(a => ({
+        nome: a.nome,
+        equipe: a.equipe,
+        chamados_abertos: a.chamados_abertos,
+        novos_hoje: hojeMap[`${a.equipe}|${a.nome}`] || 0,
+        chamados_encerrados: a.chamados_encerrados || 0,
+      }));
+      if (!linhas.length) return;
+      exportarCSV('atendimento_atendentes', [
+        { header: 'Atendente', key: 'nome' },
+        { header: 'Equipe', key: 'equipe' },
+        { header: 'Chamados Abertos', key: 'chamados_abertos' },
+        { header: 'Novos Hoje', key: 'novos_hoje' },
+        { header: 'Encerrados (Mes)', key: 'chamados_encerrados' },
+      ], linhas);
+    }
+
+    function exportarDiasSemMov() {
+      if (!dadosCache) return;
+      const filtroEquipe = document.getElementById('filtroEquipe').value;
+      let lista = dadosCache.dias_sem_movimentacao || [];
+      if (filtroEquipe) lista = lista.filter(d => d.equipe === filtroEquipe);
+      lista = lista.slice(0, 10);
+      if (!lista.length) return;
+      exportarCSV('atendimento_dias_sem_movimentacao', [
+        { header: 'ID', key: 'id_chamada' },
+        { header: 'Referencia', key: 'referencia' },
+        { header: 'Equipe', key: 'equipe' },
+        { header: 'Responsavel', key: 'responsavel' },
+        { header: 'Status', key: 'status' },
+        { header: 'Dias sem Mov.', key: 'dias_sem_movimentacao' },
+        { header: 'Dias em Aberto', key: 'dias_em_aberto' },
+      ], lista);
+    }
+
+    function exportarPrioridades() {
+      if (!dadosCache) return;
+      const filtroEquipe = document.getElementById('filtroEquipe').value;
+      const filtroAtendente = document.getElementById('filtroAtendente').value;
+      let lista = dadosCache.prioridades || [];
+      if (filtroEquipe) lista = lista.filter(p => p.equipe === filtroEquipe);
+      if (filtroAtendente) lista = lista.filter(p => p.atendente === filtroAtendente);
+      if (!lista.length) return;
+      exportarCSV('atendimento_prioridades', [
+        { header: 'Prioridade', key: 'prioridade' },
+        { header: 'ID', key: 'id_chamada' },
+        { header: 'Referencia', key: 'referencia' },
+        { header: 'Equipe', key: 'equipe' },
+        { header: 'Atendente', key: 'atendente' },
+        { header: 'Status', key: 'status' },
+      ], lista);
     }
 
     document.getElementById('filtroEquipe').addEventListener('change', () => {
@@ -1117,6 +1217,46 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    }
+
+    // ─── Exportacao para Excel (CSV) ───────────────────────────────────────────
+    // Gera um CSV que o Excel abre direto. Usa separador ';' (padrao pt-BR) e
+    // BOM UTF-8 para os acentos sairem corretos. Sem dependencias externas.
+    //   nomeArquivo: nome base (sem extensao)
+    //   colunas: [{ header: 'Rotulo', key: 'campo' }, ...]
+    //   linhas:  array de objetos
+    function exportarCSV(nomeArquivo, colunas, linhas) {
+      const sep = ';';
+      const escaparCelula = (valor) => {
+        let s = (valor === null || valor === undefined) ? '' : String(valor);
+        // Neutraliza formulas (CSV injection) iniciando a celula com apostrofo.
+        if (/^[=+\-@]/.test(s)) s = "'" + s;
+        // Envolve em aspas se houver separador, aspas ou quebra de linha.
+        if (/[";\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      };
+
+      const cabecalho = colunas.map(c => escaparCelula(c.header)).join(sep);
+      const corpo = linhas.map(linha =>
+        colunas.map(c => escaparCelula(linha[c.key])).join(sep)
+      );
+      const conteudo = '\uFEFF' + [cabecalho, ...corpo].join('\r\n');
+
+      const blob = new Blob([conteudo], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const carimbo = new Date().toISOString().slice(0, 10);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nomeArquivo + '_' + carimbo + '.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Monta uma barra com o botao "Baixar Excel" para injetar antes de uma tabela.
+    function barraExport(fnNome) {
+      return '<div class="list-actions"><button class="btn-export" onclick="' + fnNome + '()">\u2193 Baixar Excel</button></div>';
     }
 
     function getMetasFiltros() {
@@ -1322,35 +1462,54 @@
       }).join('');
     }
 
-    function renderMetasListagem() {
-      const container = document.getElementById('metasListagem');
-      const filtros = getMetasFiltros();
+    const METAS_COLUNAS = [
+      { header: 'Equipe', key: 'equipe' },
+      { header: 'Atendente', key: 'atendente' },
+      { header: 'Classificacao', key: 'classificacao' },
+      { header: 'Qtde', key: 'qtde' },
+      { header: 'Ano', key: 'ano' },
+      { header: 'Mes', key: 'mes' },
+    ];
 
-      let dados;
-      if (metaSubTabAtiva === 'satisfacao') dados = filtrarMetas(metasCache.satisfacao || [], filtros);
-      else if (metaSubTabAtiva === 'primAtend') dados = filtrarMetas(metasCache.primeiro_atendimento || [], filtros);
-      else dados = filtrarMetas(metasCache.sla || [], filtros);
-
-      if (!dados.length) { container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>'; return; }
-
-      let html = '<table><thead><tr>' + thSortable('Equipe','equipe','metasLista') + thSortable('Atendente','atendente','metasLista') + thSortable('Classificacao','classificacao','metasLista') + thSortable('Qtde','qtde','metasLista') + thSortable('Ano','ano','metasLista') + thSortable('Mes','mes','metasLista') + '</tr></thead><tbody>';
+    function montarTabelaMetas(dados) {
+      let html = barraExport('exportarMetas');
+      html += '<table><thead><tr>' + thSortable('Equipe','equipe','metasLista') + thSortable('Atendente','atendente','metasLista') + thSortable('Classificacao','classificacao','metasLista') + thSortable('Qtde','qtde','metasLista') + thSortable('Ano','ano','metasLista') + thSortable('Mes','mes','metasLista') + '</tr></thead><tbody>';
       dados.forEach(d => {
         html += '<tr><td>' + escaparHtml(d.equipe) + '</td><td>' + escaparHtml(d.atendente) + '</td><td><span class="badge badge-accent">' + escaparHtml(d.classificacao) + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
       });
       html += '</tbody></table>';
-      container.innerHTML = html;
+      return html;
+    }
+
+    // Retorna os dados da sub-aba de metas ativa ja filtrados.
+    function metasDadosAtuais() {
+      const filtros = getMetasFiltros();
+      if (metaSubTabAtiva === 'satisfacao') return filtrarMetas(metasCache.satisfacao || [], filtros);
+      if (metaSubTabAtiva === 'primAtend') return filtrarMetas(metasCache.primeiro_atendimento || [], filtros);
+      return filtrarMetas(metasCache.sla || [], filtros);
+    }
+
+    function renderMetasListagem() {
+      const container = document.getElementById('metasListagem');
+      const dados = metasDadosAtuais();
+      if (!dados.length) { container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>'; return; }
+      container.innerHTML = montarTabelaMetas(dados);
     }
 
 
     function renderMetasListagemSorted(dados) {
       const container = document.getElementById('metasListagem');
       if (!dados.length) { container.innerHTML = '<div class="loading"><p>Nenhum registro encontrado</p></div>'; return; }
-      let html = '<table><thead><tr>' + thSortable('Equipe','equipe','metasLista') + thSortable('Atendente','atendente','metasLista') + thSortable('Classificacao','classificacao','metasLista') + thSortable('Qtde','qtde','metasLista') + thSortable('Ano','ano','metasLista') + thSortable('Mes','mes','metasLista') + '</tr></thead><tbody>';
-      dados.forEach(d => {
-        html += '<tr><td>' + escaparHtml(d.equipe) + '</td><td>' + escaparHtml(d.atendente) + '</td><td><span class="badge badge-accent">' + escaparHtml(d.classificacao) + '</span></td><td class="text-center">' + (d.qtde||0) + '</td><td class="text-center">' + d.ano + '</td><td class="text-center">' + d.mes + '</td></tr>';
-      });
-      html += '</tbody></table>';
-      container.innerHTML = html;
+      container.innerHTML = montarTabelaMetas(dados);
+    }
+
+    // Exporta a listagem de metas da sub-aba ativa (respeita os filtros).
+    function exportarMetas() {
+      if (!metasCache) return;
+      const dados = metasDadosAtuais();
+      if (!dados.length) return;
+      const nome = 'metas_' + metaSubTabAtiva;
+      exportarCSV(nome, METAS_COLUNAS, dados);
     }
 
     // Eventos filtros metas
@@ -1516,6 +1675,29 @@
       ).join('');
     }
 
+    // Colunas usadas tanto na tabela quanto na exportacao da PT.
+    const PT_COLUNAS = [
+      { header: 'ID', key: 'id_chamada' },
+      { header: 'Referencia', key: 'referencia' },
+      { header: 'Atendente', key: 'atendente' },
+      { header: 'Status', key: 'status' },
+    ];
+
+    function montarTabelaPT(dados) {
+      let html = barraExport('exportarPT');
+      html += '<table><thead><tr>'
+        + thSortable('ID', 'id_chamada', 'ptLista')
+        + thSortable('Referencia', 'referencia', 'ptLista')
+        + thSortable('Atendente', 'atendente', 'ptLista')
+        + thSortable('Status', 'status', 'ptLista')
+        + '</tr></thead><tbody>';
+      dados.forEach(d => {
+        html += '<tr><td>' + (d.id_chamada || '') + '</td><td>' + escaparHtml(d.referencia) + '</td><td>' + escaparHtml(d.atendente) + '</td><td>' + escaparHtml(d.status) + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      return html;
+    }
+
     function renderPtListagem() {
       const container = document.getElementById('ptListagem');
 
@@ -1532,17 +1714,7 @@
         return;
       }
 
-      let html = '<table><thead><tr>'
-        + thSortable('ID', 'id_chamada', 'ptLista')
-        + thSortable('Referencia', 'referencia', 'ptLista')
-        + thSortable('Cliente', 'cliente', 'ptLista')
-        + thSortable('Status', 'status', 'ptLista')
-        + '</tr></thead><tbody>';
-      dados.forEach(d => {
-        html += '<tr><td>' + (d.id_chamada || '') + '</td><td>' + escaparHtml(d.referencia) + '</td><td>' + escaparHtml(d.cliente) + '</td><td>' + escaparHtml(d.status) + '</td></tr>';
-      });
-      html += '</tbody></table>';
-      container.innerHTML = html;
+      container.innerHTML = montarTabelaPT(dados);
     }
 
     function renderPtListagemSorted(dados) {
@@ -1551,17 +1723,17 @@
         container.innerHTML = '<div class="loading"><p>Nenhum chamado encontrado</p></div>';
         return;
       }
-      let html = '<table><thead><tr>'
-        + thSortable('ID', 'id_chamada', 'ptLista')
-        + thSortable('Referencia', 'referencia', 'ptLista')
-        + thSortable('Cliente', 'cliente', 'ptLista')
-        + thSortable('Status', 'status', 'ptLista')
-        + '</tr></thead><tbody>';
-      dados.forEach(d => {
-        html += '<tr><td>' + (d.id_chamada || '') + '</td><td>' + escaparHtml(d.referencia) + '</td><td>' + escaparHtml(d.cliente) + '</td><td>' + escaparHtml(d.status) + '</td></tr>';
-      });
-      html += '</tbody></table>';
-      container.innerHTML = html;
+      container.innerHTML = montarTabelaPT(dados);
+    }
+
+    // Exporta os chamados da sub-aba PT ativa (respeita equipe e categoria).
+    function exportarPT() {
+      if (!ptCache || !ptEquipeCarregada) return;
+      const grupos = getPtPorCategoria();
+      const dados = grupos[ptSubTabAtiva] || [];
+      if (!dados.length) return;
+      const nome = 'pendencia_tecnica_' + ptSubTabAtiva + '_' + ptEquipeCarregada.replace(/[^\w]+/g, '_');
+      exportarCSV(nome, PT_COLUNAS, dados);
     }
 
     // Eventos filtro PT: cada troca de equipe busca os dados daquela equipe no
